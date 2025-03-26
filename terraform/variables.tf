@@ -30,11 +30,14 @@ variable "gcs_bucket_name" {
 variable "bq_dataset_name" {
   description = "The base name of the BigQuery dataset (environment prefix will be added automatically)"
   type        = string
-  default     = "project-dataset-pebbles"
+  default     = "project_dataset_pebbles"
 }
 
-variable "credentials" {
-  description = "Path to the service account key JSON file (used for authentication)"
-  type        = string
-  default     = "../de-project-key.json" # relative path to make it easier for team cooperation
-}
+# no need to use credentials of a service account
+# as we will create service accounts for different env
+
+# variable "credentials" {
+#   description = "Path to the service account key JSON file (used for authentication)"
+#   type        = string
+#   default     = "../de-project-key.json" # relative path to make it easier for team cooperation
+# }

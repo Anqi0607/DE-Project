@@ -8,7 +8,9 @@ terraform {
 }
 
 provider "google" {
-  credentials = file(var.credentials)
+# no need to use credentials of a service account
+# as we will create service accounts for different env
+#   credentials = file(var.credentials)
   project     = var.project
   region      = var.region
 }
