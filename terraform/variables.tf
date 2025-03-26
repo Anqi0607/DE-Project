@@ -1,42 +1,40 @@
-variable "credentials" {
-  description = "My Credentials"
-  # relative path to make it easier for team cooperation
-  default     = "../de-project-key.json"
-  #ex: if you have a directory where this file is called keys with your service account json file
-  #saved there as my-creds.json you could use default = "./keys/my-creds.json"
+variable "env" {
+  description = "The environment name (e.g., dev, staging, prod)"
+  type        = string
 }
 
-
 variable "project" {
-  description = "Project"
+  description = "The GCP Project ID to deploy resources into"
+  type        = string
   default     = "just-camera-454714-e8"
 }
 
 variable "region" {
-  description = "Region"
-  #Update the below to your desired region
+  description = "The GCP region used by the provider (not all services use this)"
+  type        = string
   default     = "us-central1"
 }
 
 variable "location" {
-  description = "Project Location"
-  #Update the below to your desired location
+  description = "The location used for resources like GCS and BigQuery (e.g., US, EU, us-central1)"
+  type        = string
   default     = "US"
 }
 
-variable "bq_dataset_name" {
-  description = "My BigQuery Dataset Name"
-  #Update the below to what you want your dataset to be called
-  default     = "project_dataset"
-}
-
 variable "gcs_bucket_name" {
-  description = "My Storage Bucket Name"
-  #Update the below to a unique bucket name
-  default     = "de-zoomcamp-project-bucket"
+  description = "The base name of the GCS bucket (environment prefix will be added automatically)"
+  type        = string
+  default     = "project-bucket-pebbles"
 }
 
-variable "gcs_storage_class" {
-  description = "Bucket Storage Class"
-  default     = "STANDARD"
+variable "bq_dataset_name" {
+  description = "The base name of the BigQuery dataset (environment prefix will be added automatically)"
+  type        = string
+  default     = "project-dataset-pebbles"
+}
+
+variable "credentials" {
+  description = "Path to the service account key JSON file (used for authentication)"
+  type        = string
+  default     = "../de-project-key.json" # relative path to make it easier for team cooperation
 }
