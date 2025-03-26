@@ -2,4 +2,5 @@
 *.tfstate
 *.tfstate.*
 **.terraform
-**.terraform.lock.*venv/
+**.terraform.lock.*
+venv/
