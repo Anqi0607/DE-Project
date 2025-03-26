@@ -4,3 +4,6 @@
 **.terraform
 **.terraform.lock.*
 venv/
+.env
+.env.*
+.google/
