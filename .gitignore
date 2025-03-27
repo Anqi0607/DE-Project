@@ -8,3 +8,4 @@ venv/
 .env.*
 .google/
 *.log
+airflow/logs/
