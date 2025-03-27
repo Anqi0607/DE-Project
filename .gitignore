@@ -9,3 +9,12 @@ venv/
 .google/
 *.log
 airflow/logs/
+# Python cache
+__pycache__/
+*.py[cod]
+# Temp output folders
+csv/
+parquet/
+# OS files
+.DS_Store
+
