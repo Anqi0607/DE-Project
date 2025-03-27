@@ -1,8 +1,11 @@
 apache-airflow-providers-google
 
+python-dotenv
+
 numpy
 pyarrow
 pandas
 sqlalchemy 
 psycopg2-binary
+
 

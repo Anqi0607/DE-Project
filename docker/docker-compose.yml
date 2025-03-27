@@ -65,6 +65,8 @@ x-airflow-common:
   volumes:
   - ../airflow/dags:/opt/airflow/dags
   - ../airflow/logs:/opt/airflow/logs
+  - ../airflow/scripts:/opt/airflow/scripts
+  - ../.env:/opt/airflow/.env
   - ../airflow/plugins:/opt/airflow/plugins
   - ~/.google/credentials/:/.google/credentials:ro
 
@@ -83,6 +85,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -117,6 +121,7 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
 
   airflow-scheduler:
     <<: *airflow-common
