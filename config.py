@@ -7,8 +7,6 @@ load_dotenv()
 
 # Pipeline Parameters
 STATE = "MA"
-START_DATE = datetime(2023, 1, 1)
-END_DATE = datetime(2025, 1, 1)
 
 CSV_DIR = "csv"
 PARQUET_DIR = "parquet"

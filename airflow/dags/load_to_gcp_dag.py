@@ -14,32 +14,44 @@ from scripts.load_to_bucket import (
 )
 import config
 
+def download_csv_dynamic(state: str, output_dir: str, **kwargs):
+    """
+    Wrapper that pulls start/end date from Airflow execution context and call the real download function.
+    """
+    execution_date = kwargs["execution_date"]
+    startts = execution_date
+    endts = (execution_date + timedelta(days=32)).replace(day=1) # 1st day of next month
+    print(f"Downlaoding METAR data from {startts} to {endts}")
+
+    write_csv_to_local(state=state, startts=startts, endts=endts, output_dir=output_dir)
+
+
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
+    "end_date": datetime(2023, 2, 2),
 }
 
 with DAG(
     dag_id="METAR_pipeline",
     default_args=default_args,
     description="ETL pipeline for METAR weather data",
-    schedule_interval=None,
-    start_date=datetime(2024, 1, 1),
-    catchup=False,
+    schedule_interval="@monthly",
+    start_date=datetime(2023, 1, 1),
+    catchup=True,
     tags=["METAR", "weather"],
 ) as dag:
 
     t1_download_csv = PythonOperator(
         task_id="download_csv",
-        python_callable=write_csv_to_local,
+        python_callable=download_csv_dynamic,
         op_kwargs={
             "state": config.STATE,
-            "startts": config.START_DATE,
-            "endts": config.END_DATE,
             "output_dir": config.CSV_DIR,
         },
+        provide_context=True,
     )
 
     t2_convert_to_parquet = PythonOperator(
