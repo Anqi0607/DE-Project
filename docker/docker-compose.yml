@@ -69,7 +69,8 @@ x-airflow-common:
   - ../.env:/opt/airflow/.env
   - ../config.py:/opt/airflow/config.py
   - ../airflow/plugins:/opt/airflow/plugins
-  - ~/.google/credentials/:/.google/credentials:ro
+  - /Users/linlinzhu/Downloads/DE/ZoomCamp/DE-Project/.google/credentials:/opt/airflow/.google/credentials:ro
+
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
