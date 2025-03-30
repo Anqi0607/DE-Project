@@ -2,10 +2,12 @@ import os
 import json
 import glob
 import shutil
+import requests
+import io
 from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import URLError
-from typing import Iterator
+from typing import Iterator, Optional
 import pandas as pd
 from google.cloud import storage
 
@@ -41,25 +43,53 @@ def get_stations_from_network(state: str) -> list[str]:
 
     return stations
 
-def download_data(url:str) -> Iterator[pd.DataFrame]:
+def download_data(url: str, station: str, failed_stations: Optional[list] = None) -> Iterator[pd.DataFrame]:
     """
-    Download CSV data in chunks and return an iterator of DataFrames.
+    Download CSV data from a URL in chunks, skipping comment lines and verifying format.
+    Appends station to `failed_stations` if download or parse fails.
 
     Args:
-        url (str): URL of the CSV file.
+        url (str): CSV download URL.
+        station (str): Station ID (used for logging and tracking).
+        failed_stations (list, optional): A list to collect failed station IDs.
 
-    Returns:
-        Iterator[pd.DataFrame]: An iterator over chunks of the CSV file.
+    Yields:
+        pd.DataFrame: Chunks of the CSV data.
     """
-    for chunk in pd.read_csv(url, chunksize=100000):
-        yield chunk
+    try:
+        response = requests.get(url)
+        if not response.ok:
+            raise ValueError(f"Bad response: HTTP {response.status_code}")
+
+        content = response.text.strip()
+
+        # HTML response check
+        if "<html" in content.lower() or "<!doctype" in content.lower():
+            raise ValueError("HTML response received (likely error page)")
+
+        # Remove comment lines
+        lines = [line for line in content.splitlines() if not line.startswith("#")]
+        if len(lines) <= 1:
+            raise ValueError("CSV content has no data rows")
+
+        # Parse CSV in chunks
+        cleaned = "\n".join(lines)
+        for chunk in pd.read_csv(io.StringIO(cleaned), chunksize=100000):
+            print(f"Loaded chunk for {station}: {len(chunk)} rows × {len(chunk.columns)} cols")
+            yield chunk
+
+    except Exception as e:
+        print(f"Failed to download or parse data for station {station}: {e}")
+        if failed_stations is not None:
+            failed_stations.append(station)
+        return
     
 
 
 def write_csv_to_local(state: str, startts: datetime, endts: datetime, output_dir: str = "csv"):
     """
-    Fetch data for all stations in a given state's ASOS network and save them as chunked CSV files
-    in a flat directory. Station names are included in the file name.
+    Fetch data for all stations in a given state's ASOS network and save them as chunked CSV files.
+    At the end, prints any stations that failed to download or parse.
 
     Args:
         state (str): Two-letter state abbreviation (e.g., "IA")
@@ -69,27 +99,44 @@ def write_csv_to_local(state: str, startts: datetime, endts: datetime, output_di
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    service = SERVICE + "data=all&tz=Etc/UTC&format=comma&latlon=yes&"
-    service += startts.strftime("year1=%Y&month1=%m&day1=%d&")
-    service += endts.strftime("year2=%Y&month2=%m&day2=%d&")
+    service = (
+        SERVICE
+        + "data=all&tz=Etc/UTC&format=comma&latlon=yes&"
+        + startts.strftime("year1=%Y&month1=%m&day1=%d&")
+        + endts.strftime("year2=%Y&month2=%m&day2=%d&")
+    )
 
     stations = get_stations_from_network(state)
     if not stations:
         print(f"No stations found for state: {state}")
         return
 
+    failed_stations = []
+
     for station in stations:
         uri = f"{service}&station={station}"
         print(f"Downloading: {station}")
 
         try:
-            for i, chunk in enumerate(download_data(uri)):
-                filename = f"{station}_{startts:%Y%m%d}_{endts:%Y%m%d}_chunk{i}.csv"
+            for i, chunk in enumerate(download_data(uri, station, failed_stations)):
+                start_str = startts.strftime("%Y%m%d")
+                end_str = endts.strftime("%Y%m%d")
+                filename = f"{station}_{start_str}_{end_str}_chunk{i}.csv"
                 filepath = os.path.join(output_dir, filename)
                 chunk.to_csv(filepath, index=False)
                 print(f"Saved: {filename}")
         except Exception as e:
-            print(f"Failed to process station {station}: {e}")
+            print(f"Unexpected error while processing {station}: {e}")
+            failed_stations.append(station)
+
+    # Print summary of failures
+    if failed_stations:
+        print("\n Failed to process the following stations:")
+        for station in failed_stations:
+            print(f" - {station}")
+    else:
+        print("\n All stations processed successfully!")
+
 
 
 def convert_to_parquet(csv_dir: str, parquet_dir: str):
