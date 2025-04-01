@@ -9,11 +9,16 @@ SHELL ["/bin/bash", "-o", "pipefail", "-e", "-u", "-x", "-c"]
 USER root
 
 RUN apt-get update -qq && apt-get install -y \
+    openjdk-17-jdk-headless \
+    procps \
     vim \
     curl \
     gnupg \
     gosu \
     && apt-get clean
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+ENV PATH="$JAVA_HOME/bin:$PATH"
 
 USER airflow
 
@@ -21,6 +26,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 USER root
+
+RUN printf '#!/usr/bin/env bash\npython -m great_expectations.cli "$@"\n' > /usr/local/bin/gx \
+    && chmod +x /usr/local/bin/gx
 
 ARG CLOUD_SDK_VERSION=426.0.0
 RUN DOWNLOAD_URL="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${CLOUD_SDK_VERSION}-linux-x86_64.tar.gz" \

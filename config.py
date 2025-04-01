@@ -12,4 +12,7 @@ CSV_DIR = "csv"
 PARQUET_DIR = "parquet"
 
 BUCKET_NAME = os.getenv("GCP_GCS_BUCKET")
-GCS_PREFIX = "METAR/{STATE}/raw"
+GCS_PREFIX = f"METAR/{STATE}/raw"
+
+
+

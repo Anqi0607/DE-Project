@@ -17,4 +17,5 @@ csv/
 parquet/
 # OS files
 .DS_Store
+lib/
 

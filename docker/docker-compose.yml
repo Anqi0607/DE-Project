@@ -70,6 +70,8 @@ x-airflow-common:
   - ../config.py:/opt/airflow/config.py
   - ../airflow/plugins:/opt/airflow/plugins
   - /Users/linlinzhu/Downloads/DE/ZoomCamp/DE-Project/.google/credentials:/opt/airflow/.google/credentials:ro
+  - /Users/linlinzhu/Downloads/DE/ZoomCamp/DE-Project/lib:/opt/airflow/lib
+
 
 
   user: "${AIRFLOW_UID:-50000}:0"
@@ -279,6 +281,28 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077"   # Spark cluster port
+      - "8088:8080"   # Spark Web UI
+    networks:
+      - default
+
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    networks:
+      - default
 
 volumes:
   postgres-db-volume:
