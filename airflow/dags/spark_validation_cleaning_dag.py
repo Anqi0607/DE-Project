@@ -20,7 +20,7 @@ with DAG(
     dag_id="METAR_validation",
     default_args=default_args,
     description="Validate METAR data on GCS",
-    schedule_interval="@daily",  # 或根据需要设置调度周期
+    schedule_interval="@daily",  
     start_date=datetime(2023, 1, 1),
     catchup=False,
     tags=["METAR", "validation"],
