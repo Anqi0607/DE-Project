@@ -6,6 +6,8 @@ import sys
 
 # 添加脚本所在目录
 sys.path.append("/opt/airflow")
+sys.path.append("/opt/airflow/scripts")
+
 
 from scripts.load_to_bucket import (
     write_csv_to_local,
@@ -17,11 +19,11 @@ import config
 
 def download_csv_dynamic(state: str, base_csv_dir: str, **kwargs):
     """
-    从 Airflow 上下文中获取执行日期，构造独有的 CSV 文件夹（仅保留日期部分），然后下载 CSV 文件。
+    根据执行日期构建形如 YYYY/MM 的目录，并下载 CSV 文件到该目录中。
     """
     execution_date = kwargs["execution_date"]
-    # 使用 YYYY-MM-DD 格式生成唯一文件夹名称
-    unique_dir = execution_date.strftime("%Y-%m-%d")
+    # 构造形如 "2023/01" 的目录结构
+    unique_dir = execution_date.strftime("%Y/%m")
     csv_dir = os.path.join(base_csv_dir, unique_dir)
     startts = execution_date
     endts = (execution_date + timedelta(days=32)).replace(day=1)
@@ -31,12 +33,13 @@ def download_csv_dynamic(state: str, base_csv_dir: str, **kwargs):
 
 def convert_parquet_dynamic(**kwargs):
     """
-    从 XCom 中获取 CSV 文件夹路径，构造独有的 Parquet 文件夹（仅保留日期部分），然后转换 CSV 到 Parquet。
+    从 XCom 中获取 CSV 目录，并构造对应的 Parquet 目录，保持年月结构不变，然后转换 CSV 到 Parquet。
     """
     ti = kwargs["ti"]
     csv_dir = ti.xcom_pull(task_ids="download_csv")
     base_parquet_dir = config.PARQUET_DIR
-    unique_dir = os.path.basename(csv_dir)  # 已经是 YYYY-MM-DD 格式
+    # 得到 CSV 目录相对于 base_csv_dir 的子目录（例如 "2023/01"）
+    unique_dir = os.path.relpath(csv_dir, config.CSV_DIR)
     parquet_dir = os.path.join(base_parquet_dir, unique_dir)
     print(f"Converting CSV files from {csv_dir} into Parquet files in {parquet_dir}")
     convert_to_parquet(csv_dir=csv_dir, parquet_dir=parquet_dir)
@@ -44,8 +47,9 @@ def convert_parquet_dynamic(**kwargs):
 
 def upload_to_gcs_dynamic(**kwargs):
     """
-    从 XCom 中获取 Parquet 文件夹路径，然后上传该目录下所有文件到 GCS，
-    按 station 将文件放入对应文件夹中（只保留 station 名称）。
+    从 XCom 中获取 Parquet 目录，然后上传该目录下所有文件到 GCS，
+    按提取的年月和站点信息存储到路径：
+      gs://<bucket>/<gcs_prefix>/<year>/<month>/<station>/<file_name>
     """
     ti = kwargs["ti"]
     parquet_dir = ti.xcom_pull(task_ids="convert_parquet")
@@ -53,13 +57,13 @@ def upload_to_gcs_dynamic(**kwargs):
     upload_parquet_to_gcs_with_station_structure(
         parquet_dir=parquet_dir,
         bucket_name=config.BUCKET_NAME,
-        gcs_prefix=config.GCS_PREFIX
+        gcs_prefix=config.GCS_PREFIX  # 例如 "METAR/MA/raw"
     )
     return parquet_dir
 
 def cleanup_dynamic(**kwargs):
     """
-    从 XCom 中获取 CSV 和 Parquet 文件夹路径，然后删除这些目录。
+    清理 XCom 中获取的 CSV 和 Parquet 目录。
     """
     ti = kwargs["ti"]
     csv_dir = ti.xcom_pull(task_ids="download_csv")
