@@ -8,7 +8,7 @@ sys.path.append("/opt/airflow")
 sys.path.append("/opt/airflow/scripts")
 
 from scripts.validate_raw_data import validate_raw_data_with_spark
-from scripts.transform_raw_dynamic import transform_raw_dynamic
+from scripts.transform_raw_data import transform_raw_data_dynamic
 import config
 
 default_args = {
@@ -43,13 +43,11 @@ with DAG(
     )
 
     # Transformation任务：动态构造 raw data 路径并转换
-    # t2_transform_raw_data = PythonOperator(
-    #     task_id="transform_raw_data",
-    #     python_callable=transform_raw_dynamic,
-    #     provide_context=True,
-    # )
+    t2_transform_raw_data = PythonOperator(
+        task_id="transform_raw_data",
+        python_callable=transform_raw_data_dynamic,
+        provide_context=True,
+    )
 
-    # 设置任务依赖关系，根据实际需求调整
-    # 如验证任务必须运行，再启用下面的依赖
-    # t1_validate_raw_data >> t2_transform_raw_data
-    t1_validate_raw_data
+    t1_validate_raw_data >> t2_transform_raw_data
+

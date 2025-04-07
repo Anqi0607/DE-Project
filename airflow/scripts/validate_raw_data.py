@@ -58,7 +58,7 @@ def validate_raw_data_with_spark(bucket_name: str, gcs_prefix: str, state: str, 
         state (str): State code, e.g., "ACK" or "IA".
     """
     # Get execution_date from the context (passed by Airflow)
-    execution_date = kwargs.get("execution_date")
+    execution_date = kwargs.get("data_interval_start")
     target_year = execution_date.strftime("%Y")
     target_month = execution_date.strftime("%m")
     

@@ -1,30 +1,36 @@
-# transform_raw_data.py
+from datetime import datetime
 import os
 from pyspark.sql.types import StructType, StructField, StringType
 from pyspark.sql import functions as F
-from create_spark_session import get_spark_session  # 使用公共的 SparkSession 创建函数
+from create_spark_session import get_spark_session
+import config
 
-def transform_raw_data(input_path: str, output_path: str = "", temp_bucket: str = ""):
+def transform_raw_data_dynamic(**kwargs):
     """
-    读取 Parquet 文件，对数据进行清洗：
+    根据执行日期构造 raw data 和 bronze 输出目录，
+    并读取 Parquet 文件进行数据清洗与转换：
+      - 输入路径例如：gs://{BUCKET_NAME}/{GCS_PREFIX}/2023/01
+      - 输出路径将 GCS_PREFIX 中的 "test" 替换为 "bronze"，例如：
+           gs://{BUCKET_NAME}/METAR/MA/bronze/2023/01
+
+    数据清洗步骤包括：
       - 去除重复记录；
       - 删除不需要的列（如 metar）；
-      - 将 valid 字段先转换为 timestamp（假定格式 "yyyy-MM-dd HH:mm"），再将未来的时间置为 null；
+      - 将 valid 字段转换为 timestamp（格式 "yyyy-MM-dd HH:mm"），并将未来时间置为 null；
       - 将数值列（原本以字符串读取）转换为 double；
-      - 根据 station 重新分区，并按 station 分区写出结果。
+      - 根据 station 重新分区，并按 station 分区写出数据。
       
-    如果未指定 output_path，则将 input_path 中的 "/raw" 替换为 "/bronze"。
-    
-    参数：
-      input_path: 原始数据存储路径（例如：gs://bucket/METAR/MA/raw/2023/01）
-      output_path: 转换后数据输出路径（例如：gs://bucket/METAR/MA/bronze/2023/01）
-      temp_bucket: （可选）Spark 处理时使用的临时 GCS bucket。
+    返回转换后的输出路径。
     """
-    if not output_path:
-        output_path = input_path.replace("/raw", "/bronze")
+    execution_date = kwargs["data_interval_start"]
+    unique_dir = execution_date.strftime("%Y/%m")
     
-    # 使用公共模块创建 SparkSession
-    spark = get_spark_session(app_name="Transform Raw Data", temp_bucket=temp_bucket)
+    # 构造输入路径和输出路径
+    raw_dir = f"gs://{config.BUCKET_NAME}/{config.GCS_PREFIX}"
+    input_path = os.path.join(raw_dir, unique_dir)
+    output_path = input_path.replace("Raw", "Bronze")
+    
+    print(f"Transforming data from {input_path} to {output_path}")
     
     # 定义 schema：所有字段先以字符串方式读取
     schema = StructType([
@@ -61,17 +67,20 @@ def transform_raw_data(input_path: str, output_path: str = "", temp_bucket: str 
         StructField("snowdepth", StringType(), True)
     ])
     
+    # 创建 SparkSession
+    spark = get_spark_session(app_name="Transform Raw Data", temp_bucket=config.TEMP_BUCKET)
+    
     try:
         df = spark.read \
             .schema(schema) \
             .option("recursiveFileLookup", "true") \
             .parquet(input_path)
     except Exception as e:
-        print(f"读取 Parquet 文件时发生错误：{e}")
+        print(f"Error reading Parquet files: {e}")
         spark.stop()
         raise
     
-    # 将 valid 字段转换为 timestamp（假定格式 "yyyy-MM-dd HH:mm"）
+    # 转换 valid 字段为 timestamp
     df = df.withColumn("valid", F.to_timestamp(F.col("valid"), "yyyy-MM-dd HH:mm"))
     
     # 显式将数值列转换为 double
@@ -90,11 +99,15 @@ def transform_raw_data(input_path: str, output_path: str = "", temp_bucket: str 
            .withColumn("valid", F.when(F.col("valid") > F.current_timestamp(), None)
                        .otherwise(F.col("valid")))
     
+    # 根据 station 重新分区
     df = df.repartition("station")
     
+    # 写出结果，按 station 分区
     df.write.mode("overwrite") \
           .partitionBy("station") \
           .parquet(output_path)
     
-    print(f"转换后的数据已写入 {output_path}")
+    print(f"Transformed data written to {output_path}")
     spark.stop()
+    
+    return output_path
