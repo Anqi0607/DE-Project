@@ -9,6 +9,7 @@ sys.path.append("/opt/airflow/scripts")
 
 from scripts.validate_raw_data import validate_raw_data_with_spark
 from scripts.transform_raw_data import transform_raw_data_dynamic
+from scripts.check_bronze_data_quality import check_bronze_data_quality
 import config
 
 default_args = {
@@ -16,7 +17,7 @@ default_args = {
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
-    # 只回溯处理 2023 年 1 月和 2 月的数据
+    # Only backfill data for January and February 2023
     "end_date": datetime(2023, 2, 2),
 }
 
@@ -30,7 +31,7 @@ with DAG(
     tags=["METAR", "validation", "transformation"],
 ) as dag:
 
-    # 验证任务：利用 Airflow 上下文传递 execution_date 来过滤当月数据
+    # Validation task: Use the Airflow context to filter data for the target month based on execution_date
     t1_validate_raw_data = PythonOperator(
         task_id="validate_raw_data",
         python_callable=validate_raw_data_with_spark,
@@ -42,12 +43,19 @@ with DAG(
         provide_context=True,
     )
 
-    # Transformation任务：动态构造 raw data 路径并转换
+    # Transformation task: Dynamically construct the raw data path and perform the transformation
     t2_transform_raw_data = PythonOperator(
         task_id="transform_raw_data",
         python_callable=transform_raw_data_dynamic,
         provide_context=True,
     )
 
-    t1_validate_raw_data >> t2_transform_raw_data
+    # Check bronze layer data quality after transformation
+    t3_check_bronze_data = PythonOperator(
+        task_id="check_bronze_data",
+        python_callable=check_bronze_data_quality,
+        provide_context=True,
+    )
 
+    t1_validate_raw_data >> t2_transform_raw_data >> t3_check_bronze_data
+    
