@@ -7,32 +7,36 @@ import config
 
 def transform_raw_data_dynamic(**kwargs):
     """
-    根据执行日期构造 raw data 和 bronze 输出目录，
-    并读取 Parquet 文件进行数据清洗与转换：
-      - 输入路径例如：gs://{BUCKET_NAME}/{GCS_PREFIX}/2023/01
-      - 输出路径将 GCS_PREFIX 中的 "test" 替换为 "bronze"，例如：
-           gs://{BUCKET_NAME}/METAR/MA/bronze/2023/01
+    Construct raw data and bronze output directories based on the execution date,
+    and read Parquet files to perform data cleaning and transformation:
+      - For example, for an execution date of 2023-01-01,
+        the input path is constructed as:
+          gs://{BUCKET_NAME}/{GCS_PREFIX}/2023/01
+      - The output path is obtained by replacing "Raw" with "Bronze" in GCS_PREFIX,
+        e.g., gs://{BUCKET_NAME}/METAR/MA/Bronze/2023/01
 
-    数据清洗步骤包括：
-      - 去除重复记录；
-      - 删除不需要的列（如 metar）；
-      - 将 valid 字段转换为 timestamp（格式 "yyyy-MM-dd HH:mm"），并将未来时间置为 null；
-      - 将数值列（原本以字符串读取）转换为 double；
-      - 根据 station 重新分区，并按 station 分区写出数据。
+    Data cleaning steps include:
+      - Removing duplicate records;
+      - Dropping unnecessary columns (e.g., metar);
+      - Converting the 'valid' column to a timestamp (format "yyyy-MM-dd HH:mm")
+        and setting any future timestamps to null;
+      - Casting numeric columns (initially read as strings) to double;
+      - Repartitioning the data by 'station' and writing the result partitioned by station.
       
-    返回转换后的输出路径。
+    Returns the output path of the transformed data.
     """
+    # Get execution_date from the context (using data_interval_start instead of execution_date)
     execution_date = kwargs["data_interval_start"]
     unique_dir = execution_date.strftime("%Y/%m")
     
-    # 构造输入路径和输出路径
+    # Construct input and output paths
     raw_dir = f"gs://{config.BUCKET_NAME}/{config.GCS_PREFIX}"
     input_path = os.path.join(raw_dir, unique_dir)
     output_path = input_path.replace("Raw", "Bronze")
     
     print(f"Transforming data from {input_path} to {output_path}")
     
-    # 定义 schema：所有字段先以字符串方式读取
+    # Define schema: all fields are initially read as strings
     schema = StructType([
         StructField("station", StringType(), True),
         StructField("valid", StringType(), True),
@@ -67,7 +71,7 @@ def transform_raw_data_dynamic(**kwargs):
         StructField("snowdepth", StringType(), True)
     ])
     
-    # 创建 SparkSession
+    # Create a SparkSession
     spark = get_spark_session(app_name="Transform Raw Data", temp_bucket=config.TEMP_BUCKET)
     
     try:
@@ -79,11 +83,14 @@ def transform_raw_data_dynamic(**kwargs):
         print(f"Error reading Parquet files: {e}")
         spark.stop()
         raise
-    
-    # 转换 valid 字段为 timestamp
+
+    # We already know that M refers to missing value so convert to null
+    df = df.replace("M", None)
+
+    # Convert the 'valid' column to timestamp (assuming format "yyyy-MM-dd HH:mm")
     df = df.withColumn("valid", F.to_timestamp(F.col("valid"), "yyyy-MM-dd HH:mm"))
     
-    # 显式将数值列转换为 double
+    # Explicitly cast numeric columns to double
     numeric_columns = [
         "lon", "lat", "tmpf", "dwpf", "relh", "drct", "sknt", "p01i",
         "alti", "mslp", "vsby", "gust", "skyl1", "skyl2", "skyl3", "skyl4",
@@ -93,16 +100,17 @@ def transform_raw_data_dynamic(**kwargs):
     for col in numeric_columns:
         df = df.withColumn(col, F.col(col).cast("double"))
     
-    # 数据清洗：去重、删除不需要的列（例如 metar）、清洗 valid 列（将未来时间置为 null）
+    # Data cleaning: remove duplicate records, drop unnecessary columns (e.g., metar),
+    # and clean the 'valid' column by setting future timestamps to null.
     df = df.dropDuplicates() \
            .drop("metar") \
            .withColumn("valid", F.when(F.col("valid") > F.current_timestamp(), None)
                        .otherwise(F.col("valid")))
     
-    # 根据 station 重新分区
+    # Repartition the data by 'station'
     df = df.repartition("station")
     
-    # 写出结果，按 station 分区
+    # Write the result partitioned by 'station'
     df.write.mode("overwrite") \
           .partitionBy("station") \
           .parquet(output_path)
