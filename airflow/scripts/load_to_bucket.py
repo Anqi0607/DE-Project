@@ -10,7 +10,7 @@ from urllib.error import URLError
 from typing import Iterator, Optional
 import pandas as pd
 from google.cloud import storage
-from create_spark_session import get_spark_session  # 复用公共 SparkSession 创建函数
+from create_spark_session import get_spark_session  # Reuse common SparkSession creation function
 
 SERVICE = "http://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
 
@@ -38,12 +38,17 @@ def download_data(url: str, station: str, failed_stations: Optional[list] = None
         content = response.text.strip()
         if "<html" in content.lower() or "<!doctype" in content.lower():
             raise ValueError("HTML response received (likely error page)")
+        # Remove any comment lines from the response
         lines = [line for line in content.splitlines() if not line.startswith("#")]
         if len(lines) <= 1:
             raise ValueError("CSV content has no data rows")
+        # Join the lines into a complete string so that pandas can read it
         cleaned = "\n".join(lines)
+        # Simulate a file from the string for pandas to read
         for chunk in pd.read_csv(io.StringIO(cleaned), chunksize=100000):
             print(f"Loaded chunk for {station}: {len(chunk)} rows × {len(chunk.columns)} cols")
+            # This function is a generator, processing and returning one chunk at a time 
+            # without loading the entire CSV file into memory.
             yield chunk
     except Exception as e:
         print(f"Failed to download or parse data for station {station}: {e}")
@@ -53,7 +58,7 @@ def download_data(url: str, station: str, failed_stations: Optional[list] = None
 
 def write_csv_to_local(state: str, startts: datetime, endts: datetime, output_dir: str = "csv"):
     os.makedirs(output_dir, exist_ok=True)
-    # 构造查询 URL
+    # Construct the query URL
     service = (
         SERVICE
         + "data=all&tz=Etc/UTC&format=comma&latlon=yes&"
@@ -70,10 +75,11 @@ def write_csv_to_local(state: str, startts: datetime, endts: datetime, output_di
         print(f"Downloading: {station}")
         try:
             for i, chunk in enumerate(download_data(uri, station, failed_stations)):
-                # 使用 YYYYMM 格式生成文件名
+                # Generate filename using YYYYMM format
                 ym = startts.strftime("%Y%m")
                 filename = f"{station}_{ym}_chunk{i}.csv"
                 filepath = os.path.join(output_dir, filename)
+                # Save the chunk as CSV using pandas
                 chunk.to_csv(filepath, index=False)
                 print(f"Saved: {filename}")
         except Exception as e:
@@ -89,6 +95,7 @@ def write_csv_to_local(state: str, startts: datetime, endts: datetime, output_di
 def convert_to_parquet(csv_dir: str, parquet_dir: str):
     spark = get_spark_session(app_name="CSV_to_Parquet_Spark")
     os.makedirs(parquet_dir, exist_ok=True)
+    # Get names of all CSV files in csv_dir as a list
     csv_files = glob.glob(os.path.join(csv_dir, "*.csv"))
     if not csv_files:
         print(f"No CSV files found in {csv_dir}")
@@ -100,6 +107,7 @@ def convert_to_parquet(csv_dir: str, parquet_dir: str):
                            .option("inferSchema", "false") \
                            .csv(csv_file)
             for col_name in df.columns:
+                # Cast all columns to string to avoid errors when reading the DataFrame after conversion to Parquet
                 df = df.withColumn(col_name, df[col_name].cast("string"))
             file_name = os.path.basename(csv_file).replace(".csv", ".parquet")
             parquet_path = os.path.join(parquet_dir, file_name)
@@ -111,9 +119,9 @@ def convert_to_parquet(csv_dir: str, parquet_dir: str):
 
 def upload_parquet_to_gcs_with_station_structure(parquet_dir: str, bucket_name: str, gcs_prefix: str = ""):
     """
-    将 parquet_dir 目录下的 Parquet 文件上传到 GCS，
-    根据文件名（格式：STATION_YYYYMM_chunkX.parquet）提取年份、月份及站点，
-    然后将文件上传到路径：
+    Upload the Parquet files in the parquet_dir to GCS.
+    Extract the year, month, and station from the filename (format: STATION_YYYYMM_chunkX.parquet),
+    and then upload the file to the following path:
       gs://<bucket>/<gcs_prefix>/<year>/<month>/<station>/<file_name>
     """
     client = storage.Client()
@@ -128,15 +136,16 @@ def upload_parquet_to_gcs_with_station_structure(parquet_dir: str, bucket_name: 
         if os.path.isdir(entry):
             base_name = os.path.basename(entry)
             match = pattern.match(base_name)
-            if match:
-                station = match.group(1)
-                ym = match.group(2)
-                year = ym[:4]
-                month = ym[4:6]
-                blob_path = os.path.join(gcs_prefix, year, month, station, base_name).replace("\\", "/")
-            else:
-                station = base_name.split("_")[0]
-                blob_path = os.path.join(gcs_prefix, station, base_name).replace("\\", "/")
+            if not match:
+                print(f"Skipping directory {entry} due to non-matching naming format.")
+                continue
+            # Construct the upload path and structure in the bucket
+            station = match.group(1)
+            ym = match.group(2)
+            year = ym[:4]
+            month = ym[4:6]
+            blob_path = os.path.join(gcs_prefix, year, month, station, base_name).replace("\\", "/")
+            
             part_files = glob.glob(os.path.join(entry, "part-*"))
             if part_files:
                 local_file = part_files[0]
@@ -151,15 +160,15 @@ def upload_parquet_to_gcs_with_station_structure(parquet_dir: str, bucket_name: 
         else:
             file_name = os.path.basename(entry)
             match = pattern.match(file_name)
-            if match:
-                station = match.group(1)
-                ym = match.group(2)
-                year = ym[:4]
-                month = ym[4:6]
-                blob_path = os.path.join(gcs_prefix, year, month, station, file_name).replace("\\", "/")
-            else:
-                station = file_name.split("_")[0]
-                blob_path = os.path.join(gcs_prefix, station, file_name).replace("\\", "/")
+            if not match:
+                print(f"Skipping file {entry} due to non-matching naming format.")
+                continue
+            station = match.group(1)
+            ym = match.group(2)
+            year = ym[:4]
+            month = ym[4:6]
+            blob_path = os.path.join(gcs_prefix, year, month, station, file_name).replace("\\", "/")
+            
             try:
                 blob = bucket.blob(blob_path)
                 blob.upload_from_filename(entry)
@@ -171,6 +180,7 @@ def cleanup_local_files(csv_dir: str, parquet_dir: str):
     for folder in [csv_dir, parquet_dir]:
         try:
             if os.path.exists(folder):
+                # Recursively delete the folder and all its subfolders and files
                 shutil.rmtree(folder)
                 print(f"Deleted folder: {folder}")
             else:

@@ -8,7 +8,6 @@ import sys
 sys.path.append("/opt/airflow")
 sys.path.append("/opt/airflow/scripts")
 
-
 from scripts.load_to_bucket import (
     write_csv_to_local,
     convert_to_parquet,
@@ -22,7 +21,8 @@ def download_csv_dynamic(state: str, base_csv_dir: str, **kwargs):
     根据执行日期构建形如 YYYY/MM 的目录，并下载 CSV 文件到该目录中。
     """
     execution_date = kwargs["execution_date"]
-    # 构造形如 "2023/01" 的目录结构
+    # 构造形如 "2023/01" 的目录结构 for each monthly task
+    # 以避免各个task在执行remove local files时删掉其他task的文件
     unique_dir = execution_date.strftime("%Y/%m")
     csv_dir = os.path.join(base_csv_dir, unique_dir)
     startts = execution_date
@@ -80,13 +80,13 @@ default_args = {
 }
 
 with DAG(
-    dag_id="METAR_pipeline",
+    dag_id="METAR_extract_load_raw_data",
     default_args=default_args,
-    description="ETL pipeline for METAR weather data",
+    description="download and upload METAR weather raw data by month and station as parquet files",
     schedule_interval="@monthly",
     start_date=datetime(2023, 1, 1),
     catchup=True,
-    tags=["METAR", "raw"],
+    tags=["METAR", "extract", "raw"],
 ) as dag:
 
     t1_download_csv = PythonOperator(
