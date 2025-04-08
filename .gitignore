@@ -18,4 +18,6 @@ parquet/
 # OS files
 .DS_Store
 lib/
+airflow.scripts.egg-info/
+metar_etl.egg-info/
 
