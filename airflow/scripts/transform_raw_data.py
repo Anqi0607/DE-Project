@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 from pyspark.sql.types import StructType, StructField, StringType
 from pyspark.sql import functions as F
-from create_spark_session import get_spark_session
+from .create_spark_session import get_spark_session
 import config
 
 def transform_raw_data_dynamic(**kwargs):

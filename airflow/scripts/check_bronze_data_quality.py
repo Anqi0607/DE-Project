@@ -1,5 +1,5 @@
 from pyspark.sql import functions as F
-from create_spark_session import get_spark_session
+from .create_spark_session import get_spark_session
 
 def check_bronze_data_quality(**kwargs):
     """

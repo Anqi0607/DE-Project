@@ -13,4 +13,5 @@ pyspark
 google-cloud-storage
 apache-airflow-providers-apache-spark
 
+pytest
 

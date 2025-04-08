@@ -4,13 +4,14 @@ import re
 import requests
 import io
 import json
+import shutil
 from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import URLError
 from typing import Iterator, Optional
 import pandas as pd
 from google.cloud import storage
-from create_spark_session import get_spark_session  # Reuse common SparkSession creation function
+from .create_spark_session import get_spark_session  # Reuse common SparkSession creation function
 
 SERVICE = "http://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
 

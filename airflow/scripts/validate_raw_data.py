@@ -2,7 +2,7 @@ import os
 from pyspark.sql.utils import AnalysisException
 from pyspark.sql.functions import sum, when, col
 from google.cloud import storage
-from create_spark_session import get_spark_session
+from .create_spark_session import get_spark_session
 
 def compare_schemas(ref_schema, curr_schema):
     """
