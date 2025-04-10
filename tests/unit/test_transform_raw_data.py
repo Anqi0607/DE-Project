@@ -1,5 +1,4 @@
 import os
-import glob
 import json
 from datetime import datetime
 import pytest
@@ -8,7 +7,7 @@ import pandas as pd
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 
-# 从 package 中导入 transform_raw_data_dynamic 函数
+# 导入 transform_raw_data_dynamic 函数
 from metar_etl.transform_raw_data import transform_raw_data_dynamic
 import metar_etl.transform_raw_data as trd  # 用于修改 config 参数
 
@@ -21,7 +20,7 @@ def dummy_read_parquet(uri, spark):
     Ignores the passed uri and returns a dummy DataFrame that
     contains all expected columns.
     """
-    # 构造一个 dummy DataFrame，其中包含两个数据行，所有列均按预期返回（部分字段设为 "M" 模拟缺失）
+    # 构造一个 dummy DataFrame，其中包含两行数据，用于测试数据转换各个步骤
     data = [
         (
             "TEST1", "2023-01-01 12:00", "100.0", "50.0", "25.0", "20.0",
@@ -60,7 +59,7 @@ class DummyDataFrameReader:
         self._options[key] = value
         return self
     def parquet(self, uri):
-        # 直接调用 dummy_read_parquet，返回 dummy DataFrame
+        # 调用 dummy_read_parquet 返回 DataFrame
         return dummy_read_parquet(uri, self.spark)
 
 class DummySparkSession:
@@ -72,6 +71,8 @@ class DummySparkSession:
     def __init__(self):
         self._spark = SparkSession.builder.master("local[*]").appName("DummySparkSession").getOrCreate()
         self._dummy_reader = DummyDataFrameReader(self._spark)
+        self.dummy_writer = None  # 用于保存写入时捕获的 DummyDataFrameWriter
+    # 把method包装成属性访问方式，使得可以通过instance.read来调用（无需.read()）来模拟spark.read
     @property
     def read(self):
         return self._dummy_reader
@@ -80,17 +81,25 @@ class DummySparkSession:
 
 class DummyDataFrameWriter:
     """
-    Dummy DataFrameWriter，用于覆盖 DataFrame.write 操作，不进行实际写入。
+    Dummy DataFrameWriter，用于覆盖 DataFrame.write 操作，不进行实际写入，
+    同时保存待写入的 DataFrame 到 self.df 供测试验证。
     """
+    def __init__(self):
+        self.df = None
+
     def mode(self, mode):
         return self
+
     def partitionBy(self, col):
         return self
+
     def parquet(self, path):
         print("Dummy write called with path:", path)
+        # 此处不进行实际写入操作
+        return
 
 # -------------------------------------------------------------------
-# Dummy Storage Client (与前面的保持不变)
+# Dummy Storage Client（保留原来的实现）
 # -------------------------------------------------------------------
 class DummyBlob:
     def __init__(self, name, size):
@@ -113,41 +122,6 @@ class DummyStorageClient:
     def list_blobs(self, bucket, prefix):
         return [b for b in self._blobs if b.name.startswith(prefix)]
 
-def dummy_urlopen(uri):
-    dummy_data = {
-        "features": [
-            {"properties": {"sid": "TEST1"}},
-            {"properties": {"sid": "TEST2"}}
-        ]
-    }
-    class DummyResponse:
-        def __init__(self, text):
-            self.text = text
-        def read(self):
-            return self.text.encode("utf-8")
-        def __enter__(self):
-            return self
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-    return DummyResponse(json.dumps(dummy_data))
-
-def dummy_requests_get(url):
-    class DummyReqResponse:
-        def __init__(self, text):
-            self.text = text
-            self.ok = True
-            self.status_code = 200
-    text = "# This is a comment\ncol1,col2\n1,2\n3,4\n"
-    return DummyReqResponse(text)
-
-def dummy_download_data(url, station, failed_stations=None):
-    data = "col1,col2\n1,2\n3,4\n"
-    df = pd.read_csv(io.StringIO(data))
-    yield df
-
-def dummy_get_stations_from_network(state: str):
-    return ["TEST1", "TEST2"]
-
 # -------------------------------------------------------------------
 # Fixtures
 # -------------------------------------------------------------------
@@ -158,7 +132,7 @@ def dummy_execution_date():
 
 @pytest.fixture
 def dummy_storage_client():
-    """Return a DummyStorageClient with one dummy blob."""
+    """Return a DummyStorageClient with一个 dummy blob."""
     dummy_blobs = [
         DummyBlob("METAR/2023/01/TEST1_202301_chunk0.parquet", 100)
     ]
@@ -168,10 +142,20 @@ def dummy_storage_client():
 def dummy_spark(monkeypatch):
     """
     Return an instance of DummySparkSession.
-    同时，用 DummyDataFrameWriter 覆盖 DataFrame.write 属性，避免实际写入文件。
+    同时，利用 monkeypatch 替换 DataFrame.write 属性，使其返回 DummyDataFrameWriter，
+    并将写入的 DataFrame 绑定到 writer.df 以供后续验证。
     """
     ds = DummySparkSession()
-    monkeypatch.setattr(DataFrame, "write", property(lambda self: DummyDataFrameWriter()))
+
+    # 定义 fake_write 函数，把当前 DataFrame 对象绑定到 DummyDataFrameWriter 中
+    def fake_write(self):
+        writer = DummyDataFrameWriter()
+        writer.df = self  # 这里 self 指当前 DataFrame 对象
+        ds.dummy_writer = writer  # 保存到 DummySparkSession 对象上，方便后续测试使用
+        return writer
+
+    # 替换 DataFrame.write 属性为自定义的 fake_write 返回的 DummyDataFrameWriter 对象
+    monkeypatch.setattr(DataFrame, "write", property(lambda self: fake_write(self)))
     yield ds
     ds.stop()
 
@@ -180,10 +164,9 @@ def dummy_spark(monkeypatch):
 # -------------------------------------------------------------------
 def test_transform_raw_data_dynamic(monkeypatch, dummy_execution_date, dummy_spark):
     """
-    Test transform_raw_data_dynamic:
-      - Simulate config parameters.
-      - Verify that the output_path is constructed correctly based on data_interval_start.
-      - Use dummy SparkSession to simulate reading and writing operations.
+    测试 transform_raw_data_dynamic：
+      - 模拟 config 参数，验证输出路径构造是否正确。
+      - 验证数据转换后写入的 DataFrame 是否符合预期。
     """
     # 模拟 config 参数：假设 GCS_PREFIX 原始值为 "Raw/TEST"，转换后将 "Raw" 替换为 "Bronze"
     monkeypatch.setattr(trd.config, "BUCKET_NAME", "dummy_bucket")
@@ -193,18 +176,63 @@ def test_transform_raw_data_dynamic(monkeypatch, dummy_execution_date, dummy_spa
     # 构造上下文，使用 key "data_interval_start"
     context = {"data_interval_start": dummy_execution_date}
     
-    # 预期：
-    # raw_dir = gs://dummy_bucket/Raw/TEST
-    # unique_dir = "2023/01"
-    # input_path = gs://dummy_bucket/Raw/TEST/2023/01
-    # output_path = input_path.replace("Raw", "Bronze") => gs://dummy_bucket/Bronze/TEST/2023/01
+    # 预期输出路径
     expected_output = "gs://dummy_bucket/Bronze/TEST/2023/01"
     
-    # 替换 get_spark_session，使其返回 dummy_spark
+    # 替换 get_spark_session 为 dummy_spark
     monkeypatch.setattr("metar_etl.transform_raw_data.get_spark_session", lambda app_name, temp_bucket="": dummy_spark)
+    
+    # 为防止 transform_raw_data_dynamic 调用 spark.stop() 后关闭 SparkContext，
+    # 覆盖 dummy_spark.stop() 为不执行任何操作
+    monkeypatch.setattr(dummy_spark, "stop", lambda: None)
     
     # 调用 transform_raw_data_dynamic
     output_path_result = transform_raw_data_dynamic(**context)
     
-    # 验证返回的 output_path 是否符合预期
+    # 验证路径构造是否符合预期
     assert output_path_result == expected_output, f"Expected {expected_output}, got {output_path_result}"
+    
+    # 此时转换过程已调用，写入操作触发 Fake DataFrameWriter，将 DataFrame 保存到 ds.dummy_writer.df 中
+    dummy_writer = dummy_spark.dummy_writer
+    transformed_df = dummy_writer.df  # 获取捕获到的 DataFrame
+    assert transformed_df is not None, "No DataFrame was written."
+    
+    # 将转换后的 DataFrame 转为 Python 对象列表进行比较
+    result_data = [row.asDict() for row in transformed_df.collect()]
+    
+    # 构造预期结果，根据 transform_raw_data_dynamic 的处理逻辑。
+    # 注意：预期结果中的 valid 字段将是一个 datetime 对象，且数字字段 cast 为 double，"M" 已转换为 None。
+    expected_data = [
+        {
+            "station": "TEST1",
+            "valid": datetime.strptime("2023-01-01 12:00", "%Y-%m-%d %H:%M"),
+            "lon": 100.0, "lat": 50.0, "tmpf": 25.0, "dwpf": 20.0,
+            "relh": 80.0, "drct": 180.0, "sknt": 10.0, "p01i": 0.0,
+            "alti": 29.92, "mslp": 1013.0, "vsby": 10.0, "gust": 5.0,
+            "skyc1": "CLR", "skyc2": "", "skyc3": "", "skyc4": "",
+            "skyl1": 5.0, "skyl2": 5.0, "skyl3": 5.0, "skyl4": 5.0,
+            "wxcodes": "RA",
+            "ice_accretion_1hr": None, "ice_accretion_3hr": None, "ice_accretion_6hr": None,
+            "peak_wind_gust": None, "peak_wind_drct": None, "peak_wind_time": None,
+            "feel": 25.0, "snowdepth": 0.0
+        },
+        {
+            "station": "TEST1",
+            "valid": datetime.strptime("2023-01-01 12:00", "%Y-%m-%d %H:%M"),
+            "lon": None, "lat": None, "tmpf": None, "dwpf": None,
+            "relh": None, "drct": None, "sknt": None, "p01i": None,
+            "alti": None, "mslp": None, "vsby": None, "gust": None,
+            "skyc1": "CLR", "skyc2": "", "skyc3": "", "skyc4": "",
+            "skyl1": None, "skyl2": None, "skyl3": None, "skyl4": None,
+            "wxcodes": "RA",
+            "ice_accretion_1hr": None, "ice_accretion_3hr": None, "ice_accretion_6hr": None,
+            "peak_wind_gust": None, "peak_wind_drct": None, "peak_wind_time": None,
+            "feel": None, "snowdepth": None
+        }
+    ]
+    
+    # assert result_data == expected_data
+    # 逐行比较转换后 DataFrame 的结果与预期结果
+    for res_row, exp_row in zip(result_data, expected_data):
+        for key, exp_value in exp_row.items():
+            assert res_row[key] == exp_value, f"Mismatch in column '{key}': expected {exp_value}, got {res_row[key]}"
