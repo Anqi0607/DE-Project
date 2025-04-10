@@ -1,42 +1,56 @@
-import os
-import glob
-import json
-from datetime import datetime
 import pytest
-import io
-import pandas as pd
+from datetime import datetime
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql import functions as F
+import metar_etl.check_bronze_data_quality as cbq
 
-# 从 package 中导入待测试的函数
-from metar_etl.check_bronze_data_quality import check_bronze_data_quality
-import metar_etl.check_bronze_data_quality as cbq  # 用于修改依赖
-
-# -------------------------------------------------------------------
-# Dummy Functions and Classes for Spark Simulation
-# -------------------------------------------------------------------
+# 修改 dummy_read_parquet，使其返回问题数据
 def dummy_read_parquet(uri, spark):
     """
-    Dummy function to simulate reading a Parquet file with Spark.
-    It ignores the passed uri and returns a dummy DataFrame created using the provided SparkSession.
-    The returned DataFrame contains all expected columns.
+    Dummy function simulating reading a Parquet file.
+    Returns a dummy DataFrame containing quality issues:
+      - Duplicate records.
+      - Some null values in critical columns.
+      - Schema issue: 'valid' column remains as StringType.
     """
-    # 构造一个 dummy DataFrame，包含所有预期列，一行数据（便于统计记录数和验证输出）
-    data = [(
-        "TEST", "2023-01-01 12:00", "100", "50", "25", "20", "80", "180", "10", "0",
-        "29.92", "1013", "10", "5", "CLR", "", "", "", "5", "5", "5", "5", "RA",
-        "1", "1", "1", "1", "1", "1", "25", "0"
-    )]
-    columns = [
-        "station", "valid", "lon", "lat", "tmpf", "dwpf", "relh", "drct", "sknt", "p01i",
-        "alti", "mslp", "vsby", "gust", "skyc1", "skyc2", "skyc3", "skyc4",
-        "skyl1", "skyl2", "skyl3", "skyl4", "wxcodes", "ice_accretion_1hr",
-        "ice_accretion_3hr", "ice_accretion_6hr", "peak_wind_gust", "peak_wind_drct",
-        "peak_wind_time", "feel", "snowdepth"
+    # 构造问题数据：包含2行，其中存在重复记录，并且 'valid' 列有 null 值。
+    data = [
+        (
+            "TEST", "2023-01-01 12:00", "100", "50", "25", "20",
+            "80", "180", "10", "0", "29.92", "1013", "10", "5",
+            "CLR", "CLR2", "CLR3", "CLR4", "5", "5", "5", "5", "RA",
+            "1", "1", "1", "1", "1", "1", "25", "0"
+        ),
+        (
+            "TEST", "2023-01-01 12:00", "100", "50", "25", "20",
+            "80", "180", "10", "0", "29.92", "1013", "10", "5",
+            "CLR", "CLR2", "CLR3", "CLR4", "5", "5", "5", "5", "RA",
+            "1", "1", "1", "1", "1", "1", "25", "0"
+        ),
+        (
+            "TEST", None, "100", "50", "25", "20",
+            "80", "180", "10", "0", "29.92", "1013", "10", "5",
+            "CLR", "CLR2", "CLR3", "CLR4", "5", "5", "5", "5", "RA",
+            "1", "1", "1", "1", "1", "1", "25", "0"
+        )
     ]
-    # 调用 dummy_spark 的 createDataFrame 方法
+    columns = [
+        "station", "valid", "lon", "lat", "tmpf", "dwpf", "relh", "drct",
+        "sknt", "p01i", "alti", "mslp", "vsby", "gust", "skyc1", "skyc2",
+        "skyc3", "skyc4", "skyl1", "skyl2", "skyl3", "skyl4", "wxcodes",
+        "ice_accretion_1hr", "ice_accretion_3hr", "ice_accretion_6hr",
+        "peak_wind_gust", "peak_wind_drct", "peak_wind_time", "feel",
+        "snowdepth"
+    ]
     return spark.createDataFrame(data, columns)
 
+# Dummy TI 用于模拟 Airflow XCom
+class DummyTI:
+    def __init__(self, output_path):
+        self._output_path = output_path
+    def xcom_pull(self, task_ids):
+        return self._output_path
+
+# DummySparkSession 和 DummyDataFrameReader 维持原有实现，但确保 dummy_read_parquet 被调用
 class DummyDataFrameReader:
     def __init__(self, spark):
         self.spark = spark
@@ -52,11 +66,6 @@ class DummyDataFrameReader:
         return dummy_read_parquet(uri, self.spark)
 
 class DummySparkSession:
-    """
-    Dummy SparkSession to simulate Spark operations.
-    内部创建真正的 SparkSession，但将 read 属性替换为 DummyDataFrameReader，
-    并提供 createDataFrame 方法代理到底层 SparkSession。
-    """
     def __init__(self):
         self._spark = SparkSession.builder.master("local[*]").appName("DummySparkSession").getOrCreate()
         self._dummy_reader = DummyDataFrameReader(self._spark)
@@ -68,136 +77,53 @@ class DummySparkSession:
     def stop(self):
         self._spark.stop()
 
-class DummyDataFrameWriter:
-    """
-    Dummy DataFrameWriter to override the write operation (avoid actual file I/O).
-    """
-    def mode(self, mode):
-        return self
-    def partitionBy(self, col):
-        return self
-    def parquet(self, path):
-        print("Dummy write called with path:", path)
-
-# -------------------------------------------------------------------
-# Dummy Storage Client to simulate GCS interactions (保持不变)
-# -------------------------------------------------------------------
-class DummyBlob:
-    def __init__(self, name, size):
-        self.name = name
-        self.size = size
-
-class DummyBucket:
-    def __init__(self):
-        self.blobs = []
-    def blob(self, blob_path):
-        return DummyBlob(blob_path, 100)
-
-class DummyStorageClient:
-    def __init__(self, blobs):
-        self._blobs = blobs
-    def bucket(self, bucket_name):
-        dummy_bucket = DummyBucket()
-        dummy_bucket.blobs = self._blobs
-        return dummy_bucket
-    def list_blobs(self, bucket, prefix):
-        return [b for b in self._blobs if b.name.startswith(prefix)]
-
-def dummy_urlopen(uri):
-    dummy_data = {
-        "features": [
-            {"properties": {"sid": "TEST1"}},
-            {"properties": {"sid": "TEST2"}}
-        ]
-    }
-    class DummyResponse:
-        def __init__(self, text):
-            self.text = text
-        def read(self):
-            return self.text.encode("utf-8")
-        def __enter__(self):
-            return self
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-    return DummyResponse(json.dumps(dummy_data))
-
-def dummy_requests_get(url):
-    class DummyReqResponse:
-        def __init__(self, text):
-            self.text = text
-            self.ok = True
-            self.status_code = 200
-    text = "# This is a comment\ncol1,col2\n1,2\n3,4\n"
-    return DummyReqResponse(text)
-
-def dummy_download_data(url, station, failed_stations=None):
-    data = "col1,col2\n1,2\n3,4\n"
-    df = pd.read_csv(io.StringIO(data))
-    yield df
-
-def dummy_get_stations_from_network(state: str):
-    return ["TEST1", "TEST2"]
-
-# -------------------------------------------------------------------
-# Dummy TI for Airflow XCom simulation
-# -------------------------------------------------------------------
-class DummyTI:
-    def __init__(self, output_path):
-        self._output_path = output_path
-    def xcom_pull(self, task_ids):
-        return self._output_path
-
-# -------------------------------------------------------------------
-# Fixtures
-# -------------------------------------------------------------------
-@pytest.fixture
-def dummy_execution_date():
-    """Return a fixed data_interval_start date for testing."""
-    return datetime(2023, 1, 1)
-
-@pytest.fixture
-def dummy_output_path():
-    """
-    Return a dummy output path.
-    Here it can be an arbitrary string since we override SparkSession.read.parquet.
-    """
-    return "dummy_output_path"
-
-@pytest.fixture
-def dummy_ti(dummy_output_path):
-    """Return a dummy TI object for simulating Airflow XCom."""
-    return DummyTI(dummy_output_path)
-
+# Fixture: dummy_spark，使用真实 SparkSession（或 DummySparkSession）构造一个简单的环境
 @pytest.fixture
 def dummy_spark(monkeypatch):
-    """
-    Return an instance of DummySparkSession.
-    同时，用 DummyDataFrameWriter 覆盖 DataFrame.write 属性，避免实际写入文件。
-    """
     ds = DummySparkSession()
-    monkeypatch.setattr(DataFrame, "write", property(lambda self: DummyDataFrameWriter()))
+    # use yield instead of return to execute ds.stop() after yield
     yield ds
     ds.stop()
 
-# -------------------------------------------------------------------
-# Unit Test for check_bronze_data_quality
-# -------------------------------------------------------------------
-def test_check_bronze_data_quality_valid(monkeypatch, dummy_ti, dummy_spark):
+# Fixture: dummy_ti，模拟 Airflow XCom 返回的输出路径
+@pytest.fixture
+def dummy_ti():
+    return DummyTI("dummy_output_path")
+
+# 测试 check_bronze_data_quality，验证各项数据质量问题是否被检测到
+def test_check_bronze_data_quality_quality(monkeypatch, dummy_spark, dummy_ti, capsys):
     """
-    Test check_bronze_data_quality when a valid dummy DataFrame is returned.
-    The dummy DataFrame will be generated via dummy_read_parquet and includes one row.
+    构造一个 Dummy DataFrame 存在以下问题：
+      - 数据中含重复记录（两行数据不同之处只是 valid 列其中一行为 null）。
+      - 'valid' 列预期应为 TimestampType，但实际上为 StringType，同时有 50% 的 null 值。
+    通过调用 check_bronze_data_quality，检测是否能在输出中发现：
+      - 总记录数输出应为 2。
+      - 存在重复记录（如果 distinct 行数小于总记录数）。
+      - Schema 警告：提示 'valid' 的数据类型错误。
+      - 关键列（'valid'）null 比例高的警告。
     """
-    # 替换 get_spark_session，使其返回我们的 dummy_spark
-    monkeypatch.setattr("metar_etl.check_bronze_data_quality.get_spark_session", lambda app_name: dummy_spark)
-    
-    # 覆盖 dummy_spark.read.parquet，使其返回我们构造的 dummy DataFrame。
+    # 用 monkeypatch 替换 SparkSession 读取 Parquet 时返回我们的问题 DataFrame
     monkeypatch.setattr(dummy_spark.read, "parquet", lambda uri: dummy_read_parquet(uri, dummy_spark))
     
-    # 构造 Airflow 上下文 kwargs，包含 dummy TI 对象
+    # 覆盖 get_spark_session 使得 check_bronze_data_quality 使用 dummy_spark
+    monkeypatch.setattr(cbq, "get_spark_session", lambda app_name: dummy_spark)
+    
+    # 构造上下文: 模拟 Airflow 的 TI 对象，使得 xcom_pull 返回一个 dummy 输出路径（此处值无关紧要）
     context = {"ti": dummy_ti}
     
-    # 调用 check_bronze_data_quality 并捕获输出
-    # 这里直接调用函数，观察是否正常执行。若需要验证输出，可以增加 capsys 参数捕获输出。
-    check_bronze_data_quality(**context)
+    # 调用 check_bronze_data_quality
+    cbq.check_bronze_data_quality(**context)
     
-    # 如果执行无异常，即认为测试通过
+    # 捕获输出
+    captured = capsys.readouterr().out
+    # 检查总记录数输出：预期 2 行数据
+    assert "Total records: 3" in captured, "Should report 3 records."
+    
+    # 检查重复记录警告：由于存在两行重复（station, lon, lat, tmpf, dwpf 相同），distinct 可能输出警告
+    assert "Warning: Duplicate records exist" in captured, "Should warn about duplicate records."
+    
+    # 检查 schema 警告：'valid' 列预期为 TimestampType，但此处为 StringType，应输出提示
+    assert "expected TimestampType" in captured, "Should warn that 'valid' column type is incorrect."
+    
+    # 检查关键字段的 null 比例：'valid' 列有1/3条记录为 null,应超过20%，输出警告
+    assert "High null ratio in critical column valid" in captured, "Should warn about high null ratio in 'valid' column."
