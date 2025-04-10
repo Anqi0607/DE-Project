@@ -34,7 +34,7 @@ def compare_schemas(ref_schema, curr_schema):
     
     return "\n".join(diff)
 
-def validate_raw_data_with_spark(bucket_name: str, gcs_prefix: str, state: str, **kwargs):
+def validate_raw_data_with_spark(bucket_name: str, gcs_prefix: str, **kwargs):
     """
     Use PySpark to read raw Parquet files from GCS and validate them on a monthly basis.
     

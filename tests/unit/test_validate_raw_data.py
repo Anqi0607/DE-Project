@@ -31,6 +31,7 @@ class DummyBucket:
         return DummyBlob(blob_path, 100)
 
 class DummyStorageClient:
+    # 传入的test case中blobs应该是一个由DummyBlob组成的list
     def __init__(self, blobs):
         self._blobs = blobs
     def bucket(self, bucket_name):
@@ -39,45 +40,6 @@ class DummyStorageClient:
         return dummy_bucket
     def list_blobs(self, bucket, prefix):
         return [b for b in self._blobs if b.name.startswith(prefix)]
-
-def dummy_urlopen(uri):
-    """Simulate urlopen returning JSON data."""
-    dummy_data = {
-        "features": [
-            {"properties": {"sid": "TEST1"}},
-            {"properties": {"sid": "TEST2"}}
-        ]
-    }
-    class DummyResponse:
-        def __init__(self, text):
-            self.text = text
-        def read(self):
-            return self.text.encode("utf-8")
-        def __enter__(self):
-            return self
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-    return DummyResponse(json.dumps(dummy_data))
-
-def dummy_requests_get(url):
-    """Simulate requests.get returning a simple CSV text."""
-    class DummyReqResponse:
-        def __init__(self, text):
-            self.text = text
-            self.ok = True
-            self.status_code = 200
-    text = "# This is a comment\ncol1,col2\n1,2\n3,4\n"
-    return DummyReqResponse(text)
-
-def dummy_download_data(url, station, failed_stations=None):
-    """Simulate download_data by returning a generator yielding a DataFrame."""
-    data = "col1,col2\n1,2\n3,4\n"
-    df = pd.read_csv(io.StringIO(data))
-    yield df
-
-def dummy_get_stations_from_network(state: str):
-    """Simulate get_stations_from_network returning a fixed station list."""
-    return ["TEST1", "TEST2"]
 
 # -------------------------------------------------------------------
 # Dummy SparkSession to override real Spark operations
@@ -133,6 +95,8 @@ def dummy_spark():
 # -------------------------------------------------------------------
 # Unit Test Functions
 # -------------------------------------------------------------------
+
+# to cover all the logical branches of the validate_raw_data_with_spark functions
 def test_validate_raw_data_no_blobs(monkeypatch, dummy_execution_date):
     """
     Test that validate_raw_data_with_spark raises ValueError when no blobs are found.
@@ -141,25 +105,40 @@ def test_validate_raw_data_no_blobs(monkeypatch, dummy_execution_date):
     monkeypatch.setattr("metar_etl.validate_raw_data.storage.Client", lambda: dummy_client)
     
     with pytest.raises(ValueError, match="No files found under path"):
-        validate_raw_data_with_spark("dummy_bucket", "METAR", "DummyState",
+        validate_raw_data_with_spark("dummy_bucket", "METAR",
                                      data_interval_start=dummy_execution_date)
 
 def test_validate_raw_data_valid(monkeypatch, dummy_execution_date, dummy_storage_client, dummy_spark, capsys):
     """
     Test validate_raw_data_with_spark when a dummy blob is found and a dummy DataFrame is returned.
     """
-    # Replace storage.Client with dummy_storage_client.
-    monkeypatch.setattr("metar_etl.validate_raw_data.storage.Client", lambda: dummy_storage_client)
-    # Replace get_spark_session with a lambda that returns our DummySparkSession.
+    # 准备一个 DummyBlob，其大小为 0 来模拟空文件
+    dummy_blob_empty = DummyBlob("METAR/2023/01/empty_file.parquet", 0)
+    # 准备一个 DummyBlob，其大小正常但后续通过 DummySparkSession 返回数据，记录数为 2
+    dummy_blob_valid = DummyBlob("METAR/2023/01/valid_file.parquet", 100)
+    
+    # 构造一个包含这两个场景的 blob 列表
+    dummy_blobs = [dummy_blob_empty, dummy_blob_valid]
+    dummy_client = DummyStorageClient(dummy_blobs)
+    monkeypatch.setattr("metar_etl.validate_raw_data.storage.Client", lambda: dummy_client)
+    
+    # 使用 DummySparkSession (需要确保其 parquet() 方法返回一个固定 DataFrame)
+    dummy_spark = DummySparkSession()
     monkeypatch.setattr("metar_etl.validate_raw_data.get_spark_session", lambda app_name: dummy_spark)
     
-    # Call the function
-    validate_raw_data_with_spark("dummy_bucket", "METAR", "DummyState", data_interval_start=dummy_execution_date)
+    # 调用待测试函数
+    validate_raw_data_with_spark("dummy_bucket", "METAR", data_interval_start=dummy_execution_date)
     
     # Capture output to check for expected messages.
     captured = capsys.readouterr().out
-    assert "Record count:" in captured
-    assert "Raw data validation completed!" in captured
+
+    assert "File is empty:" in captured
+    # 断言中检查各列的 null 值比率输出是否正确
+    assert "Record count: 2" in captured
+    # 针对 num1 列的断言
+    assert "Column 'num1': 1 nulls (or 'M'), ratio: 50.00%" in captured
+    # 针对 num2 列的断言
+    assert "Column 'num2': 1 nulls (or 'M'), ratio: 50.00%" in captured
 
 def test_compare_schemas():
     """
