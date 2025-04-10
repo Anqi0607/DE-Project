@@ -8,12 +8,7 @@ def compare_schemas(ref_schema, curr_schema):
     """
     Compare two schemas and return detailed differences as a string.
     """
-    lines = []
-    lines.append("Schema mismatch detected!")
-    lines.append("Reference schema:")
-    lines.append(str(ref_schema))
-    lines.append("Current schema:")
-    lines.append(str(curr_schema))
+    diff = []
     
     # Build dictionaries mapping field names to field objects for both schemas.
     ref_fields = {field.name: field for field in ref_schema.fields}
@@ -25,9 +20,9 @@ def compare_schemas(ref_schema, curr_schema):
     only_in_curr = set(curr_fields.keys()) - set(ref_fields.keys())
     
     if only_in_ref:
-        lines.append("Fields only in reference schema: " + ", ".join(only_in_ref))
+        diff.append("Fields only in reference schema: " + ", ".join(only_in_ref))
     if only_in_curr:
-        lines.append("Fields only in current schema: " + ", ".join(only_in_curr))
+        diff.append("Fields only in current schema: " + ", ".join(only_in_curr))
     
     # Compare data types for common fields.
     common_fields = set(ref_fields.keys()).intersection(set(curr_fields.keys()))
@@ -35,9 +30,9 @@ def compare_schemas(ref_schema, curr_schema):
         ref_type = ref_fields[field_name].dataType
         curr_type = curr_fields[field_name].dataType
         if ref_type != curr_type:
-            lines.append(f"Field '{field_name}' type mismatch: reference type = {ref_type}, current type = {curr_type}")
+            diff.append(f"Field '{field_name}' type mismatch: reference type = {ref_type}, current type = {curr_type}")
     
-    return "\n".join(lines)
+    return "\n".join(diff)
 
 def validate_raw_data_with_spark(bucket_name: str, gcs_prefix: str, state: str, **kwargs):
     """

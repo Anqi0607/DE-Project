@@ -10,7 +10,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.utils import AnalysisException
 
-# 从 package 中导入待测试的函数
+
 from metar_etl.validate_raw_data import validate_raw_data_with_spark, compare_schemas
 
 # -------------------------------------------------------------------
@@ -168,11 +168,22 @@ def test_compare_schemas():
     from pyspark.sql.types import StructType, StructField, StringType, DoubleType
     schema1 = StructType([
         StructField("station", StringType(), True),
-        StructField("tmpf", DoubleType(), True)
+        StructField("tmpf", DoubleType(), True),
+        StructField("test1", DoubleType(), True),
+
     ])
     schema2 = StructType([
         StructField("station", StringType(), True),
-        StructField("tmpf", StringType(), True)
+        StructField("tmpf", StringType(), True),
+        StructField("test2", DoubleType(), True),
     ])
+
     diff = compare_schemas(schema1, schema2)
-    assert "tmpf" in diff and "DoubleType" in diff and "StringType" in diff
+    
+    expected_ref_diff = "Fields only in reference schema: test1"
+    expected_curr_diff = "Fields only in current schema: test2"
+    expected_type_diff = "Field 'tmpf' type mismatch: reference type = DoubleType(), current type = StringType()"
+
+    assert expected_ref_diff in diff
+    assert expected_curr_diff in diff
+    assert expected_type_diff in diff
