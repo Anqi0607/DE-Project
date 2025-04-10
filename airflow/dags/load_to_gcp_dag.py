@@ -20,7 +20,7 @@ def download_csv_dynamic(state: str, base_csv_dir: str, **kwargs):
     """
     根据执行日期构建形如 YYYY/MM 的目录，并下载 CSV 文件到该目录中。
     """
-    execution_date = kwargs["execution_date"]
+    execution_date = kwargs["data_interval_start"]
     # 构造形如 "2023/01" 的目录结构 for each monthly task
     # 以避免各个task在执行remove local files时删掉其他task的文件
     unique_dir = execution_date.strftime("%Y/%m")

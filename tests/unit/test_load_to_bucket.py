@@ -29,7 +29,7 @@ class DummyResponse:
     def __init__(self, text):
         self.text = text
     def read(self):
-        # 返回编码后的文本
+        # return bytes
         return self.text.encode("utf-8")
     def __enter__(self):
         return self
@@ -83,12 +83,15 @@ class DummyBucket:
         return dummy
 
 class DummyStorageClient:
-    def __init__(self):
+    def __init__(self, blobs=None):
+        if blobs is None:
+            blobs = []
         self.bucket_obj = DummyBucket()
+        self.bucket_obj.blobs = blobs
     def bucket(self, bucket_name):
         return self.bucket_obj
     def list_blobs(self, bucket, prefix):
-        return []  # For unit tests, we simulate no listed blobs
+        return []
 
 # -------------------------------------------------------------------
 # Fixtures for temporary directories if needed
@@ -128,6 +131,7 @@ def test_download_data(monkeypatch):
     assert len(chunks) > 0, "Should return at least one DataFrame chunk"
     df = chunks[0]
     assert "col1" in df.columns and "col2" in df.columns
+    # number of rows should be 2
     assert df.shape[0] == 2
 
 def test_write_csv_to_local(tmp_path, monkeypatch):
@@ -148,30 +152,49 @@ def test_write_csv_to_local(tmp_path, monkeypatch):
     csv_files = [f for f in os.listdir(output_dir) if f.endswith(".csv")]
     assert len(csv_files) > 0, "Expected CSV files in the output directory."
 
+    expected_files = {"TEST1_202301_chunk0.csv", "TEST2_202301_chunk0.csv"}
+    assert expected_files.issubset(set(csv_files)), f"Expected files {expected_files}, but got: {csv_files}" 
+
 def test_convert_to_parquet(temp_csv_dir, temp_parquet_dir):
-    from metar_etl.load_to_bucket import convert_to_parquet
+
     convert_to_parquet(temp_csv_dir, temp_parquet_dir)
     parquet_files = glob.glob(os.path.join(temp_parquet_dir, "*.parquet"))
     assert len(parquet_files) > 0, "Parquet file should be created after conversion."
 
+    expected_file = "TEST_202301_chunk0.parquet"
+    actual_files = [os.path.basename(f) for f in parquet_files]
+    assert expected_file in actual_files, f"Expected {expected_file} in {actual_files}"
+
 def test_upload_parquet_to_gcs(monkeypatch, tmp_path):
     """
-    Test upload_parquet_to_gcs_with_station_structure function by simulating GCS upload.
-    Uses DummyStorageClient to mock the behavior.
+    Test the upload_parquet_to_gcs_with_station_structure function
+    by checking that DummyBlob objects have their uploaded attribute set to True.
     """
-    # Create a temporary directory to simulate the Parquet file directory.
+    # 创建一个临时目录模拟 Parquet 文件目录
     parquet_dir = tmp_path / "parquet"
     parquet_dir.mkdir()
+    # 创建一个 dummy parquet 文件（内容不重要，仅用来触发上传）
     dummy_parquet = parquet_dir / "TEST_202301_chunk0.parquet"
     dummy_parquet.write_text("dummy parquet content")
     
-    # Replace storage.Client with a lambda returning DummyStorageClient
-    monkeypatch.setattr("metar_etl.load_to_bucket.storage.Client", lambda: DummyStorageClient())
+    # 创建一个 DummyStorageClient 实例，并保存到变量 dummy_storage
+    dummy_storage = DummyStorageClient([])
+    
+    # 替换 storage.Client 使其返回我们的 dummy_storage
+    monkeypatch.setattr("metar_etl.load_to_bucket.storage.Client", lambda: dummy_storage)
     
     bucket_name = "dummy_bucket"
     gcs_prefix = "prefix"
+    
+    # 调用上传函数，上传过程中会调用 dummy_storage.bucket(...).blob(...) 生成 DummyBlob 对象，
+    # 并且 DummyBlob.upload_from_filename() 会将 uploaded 设为 True。
     upload_parquet_to_gcs_with_station_structure(str(parquet_dir), bucket_name, gcs_prefix)
-    # Since DummyStorageClient does not simulate listing or further checking, we assume no exceptions means success.
+    
+    # 获取 DummyBucket 对象，并检查 blobs 是否被设置为 uploaded=True
+    bucket = dummy_storage.bucket(bucket_name)
+    # 遍历 bucket.blobs，确保每个 DummyBlob 的 uploaded 属性都为 True
+    for blob in bucket.blobs:
+        assert blob.uploaded, f"Blob '{blob.name}' was not marked as uploaded."
 
 def test_cleanup_local_files(tmp_path):
     """
@@ -185,7 +208,6 @@ def test_cleanup_local_files(tmp_path):
     (csv_dir / "dummy.txt").write_text("dummy")
     (parquet_dir / "dummy.txt").write_text("dummy")
     
-    from metar_etl.load_to_bucket import cleanup_local_files
     cleanup_local_files(str(csv_dir), str(parquet_dir))
     
     assert not os.path.exists(str(csv_dir)), "CSV directory should be deleted."

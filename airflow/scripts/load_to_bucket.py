@@ -21,6 +21,7 @@ def get_stations_from_network(state: str) -> list[str]:
     uri = f"https://mesonet.agron.iastate.edu/geojson/network/{network}.geojson"
     
     try:
+        
         with urlopen(uri) as response:
             jdict = json.load(response)
         for site in jdict["features"]:
