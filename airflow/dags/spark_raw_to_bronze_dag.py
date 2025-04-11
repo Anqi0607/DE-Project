@@ -14,13 +14,6 @@ from scripts.check_bronze_data_quality import check_bronze_data_quality
 from scripts.create_big_query_table import load_parquet_to_bigquery
 import config
 
-PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-DATASET_NAME = os.getenv("GCP_BIGQUERY_DATASET")
-BUCKET = os.getenv("GCP_GCS_BUCKET")
-STATE = config.STATE
-PREFIX = f"METAR/{STATE}/Bronze"
-
-
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
