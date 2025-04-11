@@ -64,7 +64,7 @@ def check_bronze_data_quality(**kwargs):
         "tmpf": "DoubleType",
         "dwpf": "DoubleType",
         "relh": "DoubleType",
-        "drct": "DoubleType", 
+        "drct": "DoubleType",
         "sknt": "DoubleType",
         "p01i": "DoubleType",
         "alti": "DoubleType",

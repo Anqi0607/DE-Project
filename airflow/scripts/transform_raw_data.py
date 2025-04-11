@@ -106,10 +106,10 @@ def transform_raw_data_dynamic(**kwargs):
            .drop("metar") \
            .withColumn("valid", F.when(F.col("valid") > F.current_timestamp(), None)
                        .otherwise(F.col("valid")))
-    
+
     # Repartition the data by 'station'
     df = df.repartition("station")
-    
+
     # Write the result partitioned by 'station'
     df.write.mode("overwrite") \
           .partitionBy("station") \
