@@ -31,6 +31,7 @@ def load_parquet_to_bigquery(**kwargs):
     print(f"Reading Parquet files from: {input_path}")
     
     # Create a SparkSession using the pre-defined method
+    # will need temp bucket in order to write into big query
     spark = get_spark_session(app_name="Load Bronze Data to BQ Table", temp_bucket=config.TEMP_BUCKET)
     
     # Read the Parquet files (assuming that the data format is correct and no additional transformation is needed)
@@ -41,6 +42,7 @@ def load_parquet_to_bigquery(**kwargs):
     print(f"Writing data to BigQuery table: {target_table}")
     
     # Write the data into a BigQuery internal table using the append mode
+    # will need temp bucket in order to write into big query
     df.write.format("bigquery") \
         .option("table", target_table) \
         .option("temporaryGcsBucket", config.TEMP_BUCKET) \
