@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: staging
+    # in GCP it's project id
+    database: just-camera-454714-e8
+    # dataset
+    schema: dev_project_dataset_pebbles
+
+    tables:
+      - name: bronze_table
