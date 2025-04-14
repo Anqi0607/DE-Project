@@ -9,3 +9,9 @@ sqlalchemy
 psycopg2-binary
 
 
+pyspark
+google-cloud-storage
+apache-airflow-providers-apache-spark
+
+pytest
+
