@@ -37,3 +37,7 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 models:
   metar_de_project:
+
+vars:
+  valid_sky_level_coverage: ["FEW", "OVC", "SCT", "BKN", "NSC", "VV"]
+
