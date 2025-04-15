@@ -1,14 +1,18 @@
 {{ config(materialized="incremental", unique_key="observation_id") }}
 
 with
-    source as (select * from {{ source("staging", "bronze_table") }}),
+    source as (
+        select *, row_number() over () as rn
+        from {{ source("staging", "bronze_table") }}
+    ),
 
     renamed as (
 
         select
 
-            -- identifiers 
-            {{ dbt_utils.generate_surrogate_key(["valid", "station"]) }}
+            -- identifiers
+            -- mulitply records have been found for the same station and timestamp so adding an additional column rn to generate primary key 
+            {{ dbt_utils.generate_surrogate_key(["valid", "station", "rn"]) }}
             as observation_id,
             station,
             valid as observation_time,
