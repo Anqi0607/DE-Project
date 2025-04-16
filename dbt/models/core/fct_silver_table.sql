@@ -2,7 +2,6 @@
 
 with
     bronze as (select * from {{ ref("stg_bronze_table") }}),
-
     stats as (select * from {{ ref("agg_silver_stats") }})
 
 select
@@ -11,6 +10,8 @@ select
     b.observation_time,
     b.lon,
     b.lat,
+    -- when data size is big, use coalesce along with join will provide better performance
+    -- when data size is small, we can use the replace_null_with_avg macro (it will run a query for every numeric column)
     coalesce(b.air_temperature, s.avg_air_temperature) as air_temperature,
     coalesce(
         b.dew_point_temperature, s.avg_dew_point_temperature
@@ -60,7 +61,7 @@ where
     -- compare the max timestamp of the existing target table and source table
     -- only load the new data
     {% if is_incremental() %}
-        and observation_time > (
+        and b.observation_time > (
             -- use coalesce for first time load bronze_table
             select coalesce(max(observation_time), '1900-01-01') from {{ this }}
         )

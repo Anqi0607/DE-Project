@@ -1,0 +1,30 @@
+version: 2
+
+macros:
+  - name: clean_sky_level_coverage
+    description: >
+      This macro replace the abnormal sky level coverage with null.
+    arguments:
+      - name: column
+        type: string
+        description: > 
+          sky level coverage code. 
+          Must be one of the accepted values defined in variable:'valid_sky_level_coverage', otherwise the macro will return null
+
+  - name: replace_null_with_avg
+    description: >
+      This macro replace the null value in numeric columns with avg value of each station.
+    arguments:
+      - name: column_name
+        type: numeric
+        description: > 
+          numeric columns in METAR dataset
+
+  - name: replace_wind_direction
+    description: >
+       This macro replace the wind direction degree 0 to 360 and replace null with avg value of each station
+    arguments:
+      - name: wind_direction
+        type: numeric
+        description: > 
+          wind direction columns in METAR dataset

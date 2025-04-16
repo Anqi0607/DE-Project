@@ -1,4 +1,13 @@
-{{ config(materialized="incremental", unique_key="observation_id") }}
+{{ config(
+    materialized='incremental',
+    unique_key='observation_id',
+    partition_by={
+        "field": "partition_date",
+        "data_type": "date"
+    },
+    cluster_by=["station"]
+) }}
+
 
 with
     source as (
@@ -16,7 +25,7 @@ with
             as observation_id,
             station,
             valid as observation_time,
-
+            date_trunc(valid, month) as partition_date,
             -- geolocation info
             lon,
             lat,
