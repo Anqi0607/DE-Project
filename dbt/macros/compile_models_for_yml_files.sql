@@ -5,8 +5,7 @@
 
 
 {% set models_to_generate = [
-    'customers',
-    'orders'
+    'dim_date'
 ] %}
 
 {{ codegen.generate_model_yaml(
