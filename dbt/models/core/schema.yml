@@ -145,6 +145,9 @@ models:
         tests:
           - not_null:
               severity: warn
+          - relationships:
+              to: ref('dim_stations')
+              field: station
 
       - name: observation_time
         data_type: timestamp
@@ -215,6 +218,10 @@ models:
           - accepted_values:
               values: "{{ var('valid_sky_level_coverage') }}"
               severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
+              severity: warn
 
       - name: sky_level_2_coverage
         data_type: string
@@ -222,6 +229,10 @@ models:
         tests:
           - accepted_values:
               values: "{{ var('valid_sky_level_coverage') }}"
+              severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
               severity: warn
 
       - name: sky_level_3_coverage
@@ -231,6 +242,10 @@ models:
           - accepted_values:
               values: "{{ var('valid_sky_level_coverage') }}"
               severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
+              severity: warn
 
       - name: sky_level_4_coverage
         data_type: string
@@ -238,6 +253,10 @@ models:
         tests:
           - accepted_values:
               values: "{{ var('valid_sky_level_coverage') }}"
+              severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
               severity: warn
 
       - name: sky_level_1_altitude
@@ -259,6 +278,11 @@ models:
       - name: present_weather_code
         data_type: string
         description: ""
+        tests:
+          - relationships:
+              to: ref('dim_weather_code')
+              field: weather_code
+              severity: warn
 
       - name: ice_accretion_1hr
         data_type: float64
