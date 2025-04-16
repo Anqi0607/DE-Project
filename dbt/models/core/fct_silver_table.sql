@@ -1,4 +1,12 @@
-{{ config(materialized="incremental", unique_key="observation_id") }}
+{{ config(
+    materialized='incremental',
+    unique_key='observation_id',
+    partition_by={
+        "field": "partition_date",
+        "data_type": "date"
+    },
+    cluster_by=["station"]
+) }}
 
 with
     bronze as (select * from {{ ref("stg_bronze_table") }}),
@@ -8,6 +16,7 @@ select
     b.observation_id,
     b.station,
     b.observation_time,
+    b.partition_date,
     b.lon,
     b.lat,
     -- when data size is big, use coalesce along with join will provide better performance

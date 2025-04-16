@@ -1,3 +1,5 @@
+-- assuming the data size is big so use incremental 
+-- if not, we can use view for staging 
 {{ config(
     materialized='incremental',
     unique_key='observation_id',
@@ -25,7 +27,8 @@ with
             as observation_id,
             station,
             valid as observation_time,
-            date_trunc(valid, month) as partition_date,
+            DATE_TRUNC(CAST(valid AS DATE), MONTH) as partition_date,
+
             -- geolocation info
             lon,
             lat,
@@ -81,3 +84,4 @@ from renamed
 
 -- dbt build --select stg_bronze_table --vars '{"is_test_run": false}' 
 {% if var("is_test_run", default=true) %} limit 100 {% endif %}
+
