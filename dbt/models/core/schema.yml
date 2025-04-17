@@ -1,0 +1,633 @@
+version: 2
+
+sources:
+  - name: silver
+    # in GCP it's project id
+    database: "{{ env_var('CGP_PROJECT_ID', 'just-camera-454714-e8') }}"
+    # dataset
+    schema: "{{ env_var('GCP_BIGQUERY_DATASET', 'dev_project_dataset_pebbles') }}"
+
+    tables:
+      - name: fct_silver_table
+
+models:
+  - name: agg_silver_stats
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+
+      - name: avg_air_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_dew_point_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_relative_humidity
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_direction
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_speed
+        data_type: float64
+        description: ""
+
+      - name: avg_precipitation
+        data_type: float64
+        description: ""
+
+      - name: avg_pressure_altimeter
+        data_type: float64
+        description: ""
+
+      - name: avg_sea_level_pressure
+        data_type: float64
+        description: ""
+
+      - name: avg_visibility
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_gust
+        data_type: float64
+        description: ""
+
+      - name: avg_
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_1_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_2_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_3_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_4_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_ice_accretion_1hr
+        data_type: float64
+        description: ""
+
+      - name: avg_ice_accretion_3hr
+        data_type: float64
+        description: ""
+
+      - name: avg_ice_accretion_6hr
+        data_type: float64
+        description: ""
+
+      - name: avg_peak_wind_gust
+        data_type: float64
+        description: ""
+
+      - name: avg_peak_wind_drct
+        data_type: float64
+        description: ""
+
+      - name: avg_peak_wind_time
+        data_type: float64
+        description: ""
+
+      - name: avg_apparent_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_snow_depth
+        data_type: float64
+        description: ""
+
+  - name: dim_station
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+      - name: lat
+        data_type: float64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+      - name: lon
+        data_type: float64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+        
+          
+
+  - name: fct_silver_table
+    description: ""
+    columns:
+      - name: observation_id
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+          
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+          - relationships:
+              to: ref('dim_station')
+              field: station
+
+      - name: observation_time
+        data_type: timestamp
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+          
+      - name: lon
+        data_type: float64
+        description: ""
+
+      - name: lat
+        data_type: float64
+        description: ""
+
+      - name: air_temperature
+        data_type: float64
+        description: ""
+
+      - name: dew_point_temperature
+        data_type: float64
+        description: ""
+
+      - name: relative_humidity
+        data_type: float64
+        description: ""
+
+      - name: wind_direction
+        data_type: float64
+        description: ""
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              severity: warn
+          - dbt_utils.expression_is_true:
+              expression: "<= 360"
+              severity: warn
+
+      - name: wind_speed
+        data_type: float64
+        description: ""
+
+      - name: precipitation
+        data_type: float64
+        description: ""
+
+      - name: pressure_altimeter
+        data_type: float64
+        description: ""
+
+      - name: sea_level_pressure
+        data_type: float64
+        description: ""
+
+      - name: visibility
+        data_type: float64
+        description: ""
+
+      - name: wind_gust
+        data_type: float64
+        description: ""
+
+      - name: sky_level_1_coverage
+        data_type: string
+        description: ""
+        tests:
+          - accepted_values:
+              values: "{{ var('valid_sky_level_coverage') }}"
+              severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
+              severity: warn
+
+      - name: sky_level_2_coverage
+        data_type: string
+        description: ""
+        tests:
+          - accepted_values:
+              values: "{{ var('valid_sky_level_coverage') }}"
+              severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
+              severity: warn
+
+      - name: sky_level_3_coverage
+        data_type: string
+        description: ""
+        tests:
+          - accepted_values:
+              values: "{{ var('valid_sky_level_coverage') }}"
+              severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
+              severity: warn
+
+      - name: sky_level_4_coverage
+        data_type: string
+        description: ""
+        tests:
+          - accepted_values:
+              values: "{{ var('valid_sky_level_coverage') }}"
+              severity: warn
+          - relationships:
+              to: ref('dim_sky_level_coverage')
+              field: sky_level_coverage
+              severity: warn
+
+      - name: sky_level_1_altitude
+        data_type: float64
+        description: ""
+
+      - name: sky_level_2_altitude
+        data_type: float64
+        description: ""
+
+      - name: sky_level_3_altitude
+        data_type: float64
+        description: ""
+
+      - name: sky_level_4_altitude
+        data_type: float64
+        description: ""
+
+      - name: present_weather_code
+        data_type: string
+        description: ""
+        tests:
+          - relationships:
+              to: ref('dim_weather_code')
+              field: weather_code
+              severity: warn
+
+      - name: ice_accretion_1hr
+        data_type: float64
+        description: ""
+
+      - name: ice_accretion_3hr
+        data_type: float64
+        description: ""
+
+      - name: ice_accretion_6hr
+        data_type: float64
+        description: ""
+
+      - name: peak_wind_gust
+        data_type: float64
+        description: ""
+
+      - name: peak_wind_drct
+        data_type: float64
+        description: ""
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              severity: warn
+          - dbt_utils.expression_is_true:
+              expression: "<= 360"
+              severity: warn
+
+      - name: peak_wind_time
+        data_type: float64
+        description: ""
+
+      - name: apparent_temperature
+        data_type: float64
+        description: ""
+
+      - name: snow_depth
+        data_type: float64
+        description: ""
+
+  - name: dim_sky_level_coverage
+    description: ""
+    columns:
+      - name: sky_level_coverage
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+
+  - name: dim_weather_code
+    description: ""
+    columns:
+      - name: weather_code
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+  
+  - name: agg_silver_stats
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+
+      - name: avg_air_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_dew_point_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_relative_humidity
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_direction
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_speed
+        data_type: float64
+        description: ""
+
+      - name: avg_precipitation
+        data_type: float64
+        description: ""
+
+      - name: avg_pressure_altimeter
+        data_type: float64
+        description: ""
+
+      - name: avg_sea_level_pressure
+        data_type: float64
+        description: ""
+
+      - name: avg_visibility
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_gust
+        data_type: float64
+        description: ""
+
+      - name: avg_
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_1_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_2_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_3_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_sky_level_4_altitude
+        data_type: float64
+        description: ""
+
+      - name: avg_ice_accretion_1hr
+        data_type: float64
+        description: ""
+
+      - name: avg_ice_accretion_3hr
+        data_type: float64
+        description: ""
+
+      - name: avg_ice_accretion_6hr
+        data_type: float64
+        description: ""
+
+      - name: avg_peak_wind_gust
+        data_type: float64
+        description: ""
+
+      - name: avg_peak_wind_drct
+        data_type: float64
+        description: ""
+
+      - name: avg_peak_wind_time
+        data_type: float64
+        description: ""
+
+      - name: avg_apparent_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_snow_depth
+        data_type: float64
+        description: ""
+
+  - name: agg_stats_by_station
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+
+      - name: lat
+        data_type: float64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: lon
+        data_type: float64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: avg_wind_speed
+        data_type: float64
+        description: ""
+
+      - name: avg_dew_point
+        data_type: float64
+        description: ""
+
+      - name: avg_air_temperature
+        data_type: float64
+        description: ""
+
+      - name: max_air_temperature
+        data_type: float64
+        description: ""
+
+      - name: min_air_temperature
+        data_type: float64
+        description: ""
+
+      - name: avg_visibility
+        data_type: float64
+        description: ""
+
+      - name: avg_wind_direction
+        data_type: float64
+        description: ""
+
+      - name: max_gust
+        data_type: float64
+        description: ""
+
+      - name: avg_gust
+        data_type: float64
+        description: ""
+
+  - name: agg_weather_code_by_station
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: present_weather_code
+        data_type: string
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: cnt
+        data_type: int64
+        description: ""
+
+  - name: agg_wind_direction_by_station
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: wind_direction
+        data_type: float64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: cnt
+        data_type: int64
+        description: ""
+
+  - name: agg_sky_level_coverage_by_station
+    description: ""
+    columns:
+      - name: station
+        data_type: string
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: sky_level_1_coverage
+        data_type: string
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: cnt
+        data_type: int64
+        description: ""
+  
+  - name: dim_date
+    description: ""
+    columns:
+      - name: date_day
+        data_type: date
+        description: ""
+        tests:
+          - unique:
+              severity: warn
+          - not_null:
+              severity: warn
+
+      - name: year
+        data_type: int64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: month
+        data_type: int64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: week_of_year
+        data_type: int64
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: is_weekend
+        data_type: boolean
+        description: ""
+        tests:
+          - not_null:
+              severity: warn
+
+
