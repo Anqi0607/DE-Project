@@ -25,6 +25,7 @@ SELECT
   EXTRACT(YEAR  FROM date_day)    AS year,
   EXTRACT(MONTH FROM date_day)    AS month,
   EXTRACT(WEEK  FROM date_day)    AS week_of_year,
+  'test' as test_ci_jobs,
   CASE
     WHEN EXTRACT(DAYOFWEEK FROM date_day) IN (1,7) THEN TRUE
     ELSE FALSE

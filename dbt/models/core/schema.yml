@@ -3,9 +3,9 @@ version: 2
 sources:
   - name: silver
     # in GCP it's project id
-    database: "{{ env_var('CGP_PROJECT_ID', 'just-camera-454714-e8') }}"
+    database: "{{ env_var('DBT_GCP_PROJECT_ID') }}"
     # dataset
-    schema: "{{ env_var('GCP_BIGQUERY_DATASET', 'dev_project_dataset_pebbles') }}"
+    schema: "{{ env_var('DBT_GCP_BIGQUERY_DATASET') }}"
 
     tables:
       - name: fct_silver_table
