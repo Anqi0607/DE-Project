@@ -20,6 +20,18 @@ services:
       - 8080:8080
     depends_on:
       - redis
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      GCP_GCS_BUCKET: ${GCP_GCS_BUCKET}
 
   spark-master:
     build:
@@ -50,10 +62,9 @@ services:
       context: .
     command: pytest  # 运行 pytest 测试
     volumes:
-      - ./tests:/tests  # 将本地的 tests 目录挂载到容器内的 /tests
+      - ./tests:/tests  # 将本地的 tests 目录挂载到容器中
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/.google/credentials  # 环境变量，根据需要
-    # 运行时会使用 pytest 来执行 tests/unit/test_load_to_bucket.py
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials  # 环境变量，根据需要
     entrypoint: ["pytest", "/tests/unit/test_load_to_bucket.py"]
 
   flower:
@@ -105,7 +116,6 @@ services:
         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
     environment:
-      <<: *airflow-common-env
       _AIRFLOW_DB_UPGRADE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
