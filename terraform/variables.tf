@@ -1,7 +1,7 @@
-variable "env" {
-  description = "The environment name (e.g., dev, staging, prod)"
-  type        = string
-}
+# variable "env" {
+#   description = "The environment name (e.g., dev, staging, prod)"
+#   type        = string
+# }
 
 variable "project" {
   description = "The GCP Project ID to deploy resources into"

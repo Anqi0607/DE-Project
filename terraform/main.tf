@@ -15,10 +15,10 @@ provider "google" {
   region      = var.region
 }
 
-# Create Service Account for each environment
+# Create Service Account for each environment (staging/dev)
 resource "google_service_account" "env_sa" {
-  account_id   = "${var.env}-terraform-sa"
-  display_name = "Terraform Service Account for ${var.env}"
+  account_id   = "${terraform.workspace}-terraform-sa"  # 动态命名
+  display_name = "Terraform Service Account for ${terraform.workspace}"
 }
 
 # Assign IAM Roles
@@ -30,6 +30,8 @@ resource "google_project_iam_member" "storage_admin" {
   project = var.project
   role    = "roles/storage.admin"
   member  = "serviceAccount:${local.sa_email}"
+
+  depends_on = [google_service_account.env_sa]  # 确保在服务账号创建后再进行 IAM 角色分配
 }
 
 resource "google_project_iam_member" "storage_object_admin" {
@@ -50,17 +52,17 @@ resource "google_project_iam_member" "viewer" {
   member  = "serviceAccount:${local.sa_email}"
 }
 
-# Create GCS bucket
+# Create GCS bucket with dynamic name
 resource "google_storage_bucket" "env_bucket" {
-  name          = "${var.env}-${var.gcs_bucket_name}"
+  name          = "${terraform.workspace}-${var.gcs_bucket_name}"  # 动态命名
   location      = var.location
   force_destroy = true
   uniform_bucket_level_access = true
 }
 
-# Create BigQuery dataset
+# Create BigQuery dataset with dynamic name
 resource "google_bigquery_dataset" "env_dataset" {
-  dataset_id                  = "${var.env}_${var.bq_dataset_name}"
+  dataset_id                  = "${terraform.workspace}_${var.bq_dataset_name}"  # 动态命名
   location                    = var.location
   delete_contents_on_destroy = true
 }
