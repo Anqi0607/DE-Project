@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateExternalTableOperator
+from airflow.providers.dbt.cloud.operators.dbt import DbtCloudRunJobOperator
 
 sys.path.append("/opt/airflow")
 sys.path.append("/opt/airflow/scripts")
@@ -66,5 +67,13 @@ with DAG(
     provide_context=True,
     )
 
-    t1_validate_raw_data >> t2_transform_raw_data >> t3_check_bronze_data >> t4_load_bronze_table
+    t5_dbt_job = DbtCloudRunJobOperator(
+        task_id="dbt_bronze_to_silver_to_gold",
+        job_id=70471823454843,
+        account_id=70471823454126,
+        dbt_cloud_conn_id='dbt_cloud_default',
+        check_interval=30,
+    )
+
+    t1_validate_raw_data >> t2_transform_raw_data >> t3_check_bronze_data >> t4_load_bronze_table >> t5_dbt_job
     
