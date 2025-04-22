@@ -16,12 +16,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Set-up Docker
-        uses: docker/setup-buildx-actions@v3
-      
       - name: Build Docker image
         run: |
-          docker build -t ci-test-for-load-image -f docker/Dockerfil .
+          docker build -t ci-test-for-load-image -f docker/Dockerfile .
       
       - name: Run Docker compose
         run: |
