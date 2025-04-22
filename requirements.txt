@@ -12,6 +12,7 @@ psycopg2-binary
 pyspark
 google-cloud-storage
 apache-airflow-providers-apache-spark
+apache-airflow-providers-dbt-cloud
 
 pytest
 
