@@ -32,10 +32,6 @@ jobs:
 
       - name: Run unit tests
         run: |
-          docker-compose exec -T airflow-webserver pip show pytest
-
-      - name: Run unit tests
-        run: |
           docker-compose exec -T airflow-webserver pip install pytest
       
       - name: Run unit tests
