@@ -32,7 +32,8 @@ jobs:
       
       - name: Run unit tests
         run: |
-          docker-compose exec -T spark-master pytest tests/unit/test_load_to_bucket.py
+          docker-compose run --rm test-container pytest tests/unit/test_load_to_bucket.py
+
 
       # - name: Run integration tests
 
