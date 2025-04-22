@@ -32,8 +32,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          # Run tests in the 'test-container' without using Spark, Airflow, or Postgres
-          docker-compose run --rm test-container pytest /tests/unit/test_load_to_bucket.py
+          docker-compose exec -T spark-master pytest tests/unit/test_load_to_bucket.py
 
       - name: Stop Docker containers
         run: |

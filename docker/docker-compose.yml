@@ -1,4 +1,35 @@
-version: "3.8"
+---
+x-airflow-common:
+  &airflow-common
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db  # 使用 SQLite 作为数据库
+    AIRFLOW__CELERY__RESULT_BACKEND: redis://redis:6379/0  # 使用 Redis 作为 Celery 结果后端
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
+    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+    AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: google-cloud-platform://?extra__google_cloud_platform__key_path=${GOOGLE_APPLICATION_CREDENTIALS}
+    GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+    GCP_GCS_BUCKET: ${GCP_GCS_BUCKET}
+
+  volumes:
+  - ../airflow/dags:/opt/airflow/dags
+  - ../airflow/logs:/opt/airflow/logs
+  - ../airflow/scripts:/opt/airflow/scripts
+  - ../.env:/opt/airflow/.env
+  - ../config.py:/opt/airflow/config.py
+  - ../airflow/plugins:/opt/airflow/plugins
+  - /Users/linlinzhu/Downloads/DE/ZoomCamp/DE-Project/.google/credentials:/opt/airflow/.google/credentials:ro
+  - /Users/linlinzhu/Downloads/DE/ZoomCamp/DE-Project/lib:/opt/airflow/lib
+  user: "${AIRFLOW_UID:-50000}:0"
 
 services:
   redis:
@@ -13,25 +44,95 @@ services:
     restart: always
 
   airflow-webserver:
-    build:
-      context: .
+    <<: *airflow-common
     command: webserver
     ports:
       - 8080:8080
-    depends_on:
-      - redis
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 10s
+      timeout: 10s
+      retries: 5
     environment:
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
-      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
-      AIRFLOW__CORE__FERNET_KEY: ''
-      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
-      GCP_GCS_BUCKET: ${GCP_GCS_BUCKET}
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0"
+    restart: always
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        # Airflow version check
+        function ver() {
+          printf "%04d%04d%04d%04d" $${1//./ }
+        }
+        airflow_version=$$(gosu airflow airflow version)
+        airflow_version_comparable=$$(ver $${airflow_version})
+        min_airflow_version=2.2.0
+        min_airflow_version_comparable=$$(ver $${min_airflow_version})
+        if (( airflow_version_comparable < min_airflow_version_comparable )); then
+          echo -e "\033[1;31mERROR!!!: Too old Airflow version $${airflow_version}!\e[0m"
+          echo "The minimum Airflow version supported: $${min_airflow_version}. Only use this or higher!"
+          exit 1
+        fi
+        mkdir -p /sources/logs /sources/dags /sources/plugins
+        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        exec /entrypoint airflow version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+    user: "0:0"
+    volumes:
+      - .:/sources
+
+  flower:
+    <<: *airflow-common
+    command: celery flower
+    ports:
+      - 5555:5555
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
 
   spark-master:
     build:
@@ -56,73 +157,6 @@ services:
       - spark-master
     command: >
       sh -c "/opt/spark/sbin/start-worker.sh spark://spark-master:7077 && tail -f /dev/null"
-
-  test-container:  # 添加的测试容器
-    build:
-      context: .
-    command: pytest  # 运行 pytest 测试
-    volumes:
-      - ./tests:/tests  # 将本地的 tests 目录挂载到容器中
-    environment:
-      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials  # 环境变量，根据需要
-    entrypoint: ["pytest", "/tests/unit/test_load_to_bucket.py"]
-
-  flower:
-    build:
-      context: .
-    command: celery flower
-    ports:
-      - 5555:5555
-    depends_on:
-      - redis
-    restart: always
-
-  airflow-scheduler:
-    build:
-      context: .
-    command: scheduler
-    depends_on:
-      - redis
-    restart: always
-
-  airflow-worker:
-    build:
-      context: .
-    command: celery worker
-    depends_on:
-      - redis
-    restart: always
-
-  airflow-init:
-    build:
-      context: .
-    entrypoint: /bin/bash
-    command:
-      - -c
-      - |
-        function ver() {
-          printf "%04d%04d%04d%04d" $${1//./ }
-        }
-        airflow_version=$$(gosu airflow airflow version)
-        airflow_version_comparable=$$(ver $${airflow_version})
-        min_airflow_version=2.2.0
-        min_airflow_version_comparable=$$(ver $${min_airflow_version})
-        if (( airflow_version_comparable < min_airflow_version_comparable )); then
-          echo -e "\033[1;31mERROR!!!: Too old Airflow version $${airflow_version}!\e[0m"
-          echo "The minimum Airflow version supported: $${min_airflow_version}. Only use this or higher!"
-          exit 1
-        fi
-        mkdir -p /sources/logs /sources/dags /sources/plugins
-        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
-        exec /entrypoint airflow version
-    environment:
-      _AIRFLOW_DB_UPGRADE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-    user: "0:0"
-    volumes:
-      - .:/sources
 
 volumes:
   postgres-db-volume:
