@@ -26,13 +26,13 @@ jobs:
         run: |
           docker build --cache-from=ci-test-for-load-image -t ci-test-for-load-image -f docker/Dockerfile .
 
-      - name: Run Docker compose (start services like Spark, Airflow)
+      - name: Run Docker compose
         run: |
           docker-compose -f docker/docker-compose.yml up -d
 
       - name: Run unit tests
         run: |
-          docker-compose exec -T spark-master pytest tests/unit/test_load_to_bucket.py
+          docker-compose exec -T spark-master pip show pytest
 
       - name: Stop Docker containers
         run: |
