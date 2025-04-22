@@ -21,23 +21,20 @@ jobs:
           sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version  # Verify installation
-      
+
       - name: Build Docker image
         run: |
           docker build --cache-from=ci-test-for-load-image -t ci-test-for-load-image -f docker/Dockerfile .
-      
-      - name: Run Docker compose
+
+      - name: Run Docker compose (start services like Spark, Airflow)
         run: |
           docker-compose -f docker/docker-compose.yml up -d
-      
+
       - name: Run unit tests
         run: |
-          docker-compose run --rm test-container pytest tests/unit/test_load_to_bucket.py
+          # Run tests in the 'test-container' without using Spark, Airflow, or Postgres
+          docker-compose run --rm test-container pytest /tests/unit/test_load_to_bucket.py
 
-
-      # - name: Run integration tests
-
-      # - name: Stop Docker containers
-      #   run: |
-      #    docker-compose -f docker/docker-compose.yml down
-
+      - name: Stop Docker containers
+        run: |
+          docker-compose -f docker/docker-compose.yml down
