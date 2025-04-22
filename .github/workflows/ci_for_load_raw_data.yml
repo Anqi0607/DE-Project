@@ -32,7 +32,15 @@ jobs:
 
       - name: Run unit tests
         run: |
-          docker-compose exec -T airflow-webserver pytest /tests/unit/test_load_to_bucket.py
+          docker-compose exec -T airflow-webserver pip show pytest
+
+      - name: Run unit tests
+        run: |
+          docker-compose exec -T airflow-webserver pip install pytest
+      
+      - name: Run unit tests
+        run: |
+          docker-compose exec -T airflow-webserver pip show pytest
 
       - name: Stop Docker containers
         run: |
