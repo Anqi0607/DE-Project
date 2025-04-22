@@ -16,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: INstall Docker Compose
+      - name: Install Docker Compose
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
@@ -24,7 +24,7 @@ jobs:
       
       - name: Build Docker image
         run: |
-          docker build -t ci-test-for-load-image -f docker/Dockerfile .
+          docker build --cache-from=ci-test-for-load-image -t ci-test-for-load-image -f docker/Dockerfile .
       
       - name: Run Docker compose
         run: |
