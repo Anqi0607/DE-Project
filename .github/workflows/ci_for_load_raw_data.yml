@@ -1,0 +1,39 @@
+name: CI for load raw data dag
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'airflow/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Set-up Docker
+        uses: docker/setup-buildx-actions@v1
+      
+      - name: Build Docker image
+        run: |
+          docker build -t ci-test-for-load-image -f docker/Dockerfil .
+      
+      - name: Run Docker compose
+        run: |
+          docker-compose -f docker/docker-compose.yml up -d
+      
+      - name: Run unit tests
+        run: |
+          docker-compose exec -T spark-master pytest tests/unit/test_load_to_bucket.py
+
+      # - name: Run integration tests
+
+      # - name: Stop Docker containers
+      #   run: |
+      #    docker-compose -f docker/docker-compose.yml down
+
