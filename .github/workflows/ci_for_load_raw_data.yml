@@ -33,7 +33,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build --cache-from=ci-test-for-load-image --env-file .env -t ci-test-for-load-image -f docker/Dockerfile .
+          docker-compose -f docker/docker-compose.yml --env-file .env build
 
       - name: Run Docker compose
         run: |
