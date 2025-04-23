@@ -11,15 +11,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials/dev-sa-key.json
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Set up Google Cloud credentials
+      - name: Write GCP service account key
         run: |
-          echo "$GCP_CREDENTIALS_STAGING" > /tmp/gcp_credentials.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp_credentials.json
+          mkdir -p airflow/.google/credentials
+          echo "${{ secrets.GCP_SA_KEY }}" > airflow/.google/credentials/dev-sa-key.json
+
 
       # Cache Docker layers to speed up the build process
       - name: Cache Docker layers
