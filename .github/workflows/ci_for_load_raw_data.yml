@@ -33,15 +33,15 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build --cache-from=ci-test-for-load-image -t ci-test-for-load-image -f docker/Dockerfile .
+          docker build --cache-from=ci-test-for-load-image --env-file .env -t ci-test-for-load-image -f docker/Dockerfile .
 
       - name: Run Docker compose
         run: |
-          docker-compose -f docker/docker-compose.yml up -d
+          docker-compose -f docker/docker-compose.yml --env-file .env up -d
 
-      - name: Run unit tests
+      - name: Run unit tests in Airflow container
         run: |
-          docker-compose -f docker/docker-compose.yml exec -T airflow-webserver pip show pytest
+          docker exec -it docker-airflow-worker-1 bash -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
 
       - name: Stop Docker containers
         run: |
