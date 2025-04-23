@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Docker compose
         run: |
-          docker-compose -f docker/docker-compose.yml --env-file .env up -d
+          docker-compose -f docker/docker-compose.yml up -d
 
       - name: Run unit tests in Airflow container
         run: |
