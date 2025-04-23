@@ -19,7 +19,7 @@ RUN apt-get update -qq && apt-get install -y \
     gosu \
     && apt-get clean
 
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
 ENV SPARK_VERSION=3.5.0
