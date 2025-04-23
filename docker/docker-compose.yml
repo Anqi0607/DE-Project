@@ -24,6 +24,7 @@ x-airflow-common:
   - ../airflow/dags:/opt/airflow/dags
   - ../airflow/logs:/opt/airflow/logs
   - ../airflow/scripts:/opt/airflow/scripts
+  - ../tests:/opt/airflow/tests
   - ../.env:/opt/airflow/.env
   - ../config.py:/opt/airflow/config.py
   - ../airflow/plugins:/opt/airflow/plugins
