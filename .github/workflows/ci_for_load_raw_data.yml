@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Set up Google Cloud credentials
+        run: |
+          echo "$GCP_CREDENTIALS_STAGING" > /tmp/gcp_credentials.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp_credentials.json
 
       # Cache Docker layers to speed up the build process
       - name: Cache Docker layers
