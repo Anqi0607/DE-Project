@@ -23,12 +23,11 @@ jobs:
           mkdir -p airflow/.google/credentials
           echo "${{ secrets.GCP_SA_KEY }}" > airflow/.google/credentials/dev-sa-key.json
 
-
       # Cache Docker layers to speed up the build process
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: /tmp/.buildx-cache  # Cache location for Docker layers
+          path: /tmp/.buildx-cache  # Cache location for docker layers
           key: ${{ runner.os }}-docker-${{ github.sha }}  # Cache key
           restore-keys: |
             ${{ runner.os }}-docker-  # Fallback cache key if specific key not found
