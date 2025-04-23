@@ -41,11 +41,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          docker-compose -f docker/docker-compose.yml exec -T airflow-webserver pip install pytest
-      
-      - name: Run unit tests
-        run: |
-          docker-compose exec -T airflow-webserver pip show pytest
+          docker-compose -f docker/docker-compose.yml exec -T airflow-webserver pip show pytest
 
       - name: Stop Docker containers
         run: |
