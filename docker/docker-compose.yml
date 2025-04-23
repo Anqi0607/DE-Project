@@ -49,6 +49,8 @@ services:
     command: webserver
     ports:
       - 8080:8080
+    env_file:
+      - /opt/airflow/.env
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 10s
@@ -59,6 +61,8 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    env_file:
+      - /opt/airflow/.env
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
       interval: 10s
@@ -79,6 +83,8 @@ services:
     environment:
       <<: *airflow-common-env
       DUMB_INIT_SETSID: "0"
+    env_file:
+      - /opt/airflow/.env
     restart: always
 
   airflow-triggerer:
