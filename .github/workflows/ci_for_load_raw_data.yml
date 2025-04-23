@@ -41,7 +41,7 @@ jobs:
 
       - name: Run unit tests in Airflow container
         run: |
-          docker exec -it docker-airflow-worker-1 bash -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
+          docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
 
       - name: Stop Docker containers
         run: |
