@@ -36,14 +36,16 @@ ENV PATH=$SPARK_HOME/bin:$PATH
 # back to airflow user
 USER airflow
 
+# 复制 requirements.txt 并安装依赖
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
 
 USER root
 RUN printf '#!/usr/bin/env bash\npython -m great_expectations.cli "$@"\n' > /usr/local/bin/gx \
     && chmod +x /usr/local/bin/gx
 
-# install Google Cloud SDK
+# 安装 Google Cloud SDK
 ARG CLOUD_SDK_VERSION=426.0.0
 RUN DOWNLOAD_URL="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${CLOUD_SDK_VERSION}-linux-x86_64.tar.gz" \
     && TMP_DIR="$(mktemp -d)" \

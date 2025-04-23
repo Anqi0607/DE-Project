@@ -10,7 +10,7 @@ import pytest
 import pandas as pd
 
 # 将项目根目录下安装的 package 导入
-from metar_etl.load_to_bucket import (
+from scripts.load_to_bucket import (
     get_stations_from_network,
     download_data,
     write_csv_to_local,
@@ -120,13 +120,13 @@ def temp_parquet_dir(tmp_path):
 
 def test_get_stations_from_network(monkeypatch):
     # Replace urlopen with dummy_urlopen within the package metar_etl.load_to_bucket
-    monkeypatch.setattr("metar_etl.load_to_bucket.urlopen", dummy_urlopen)
+    monkeypatch.setattr("scripts.load_to_bucket.urlopen", dummy_urlopen)
     stations = get_stations_from_network("DummyState")
     assert stations == ["TEST1", "TEST2"]
 
 def test_download_data(monkeypatch):
     # Replace requests.get with dummy_requests_get
-    monkeypatch.setattr("metar_etl.load_to_bucket.requests.get", dummy_requests_get)
+    monkeypatch.setattr("scripts.load_to_bucket.requests.get", dummy_requests_get)
     chunks = list(download_data("http://dummy.url", "DummyStation"))
     assert len(chunks) > 0, "Should return at least one DataFrame chunk"
     df = chunks[0]
@@ -139,8 +139,8 @@ def test_write_csv_to_local(tmp_path, monkeypatch):
     Test write_csv_to_local's path construction and file writing logic.
     Use a temporary directory to simulate the output directory.
     """
-    monkeypatch.setattr("metar_etl.load_to_bucket.get_stations_from_network", dummy_get_stations_from_network)
-    monkeypatch.setattr("metar_etl.load_to_bucket.download_data", dummy_download_data)
+    monkeypatch.setattr("scripts.load_to_bucket.get_stations_from_network", dummy_get_stations_from_network)
+    monkeypatch.setattr("scripts.load_to_bucket.download_data", dummy_download_data)
     
     state = "DummyState"
     startts = datetime(2023, 1, 1)
@@ -181,7 +181,7 @@ def test_upload_parquet_to_gcs(monkeypatch, tmp_path):
     dummy_storage = DummyStorageClient([])
     
     # 替换 storage.Client 使其返回我们的 dummy_storage
-    monkeypatch.setattr("metar_etl.load_to_bucket.storage.Client", lambda: dummy_storage)
+    monkeypatch.setattr("scripts.load_to_bucket.storage.Client", lambda: dummy_storage)
     
     bucket_name = "dummy_bucket"
     gcs_prefix = "prefix"
