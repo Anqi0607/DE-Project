@@ -50,6 +50,10 @@ jobs:
         run: |
           docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
 
+      - name: Run integration text in Airflow container
+        run: |
+          docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH=/opt/airflow && pytest tests/integration/test_load_to_gcp_dag.py"
+
       - name: Stop Docker containers
         run: |
           docker-compose -f docker/docker-compose.yml down
