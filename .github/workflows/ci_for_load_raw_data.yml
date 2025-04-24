@@ -63,7 +63,7 @@ jobs:
             # 跑测试 \
             pytest tests/integration/test_load_to_gcp_dag.py -q \
           "
-
+          
       - name: Stop Docker containers
         run: |
           docker-compose -f docker/docker-compose.yml down

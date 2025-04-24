@@ -1,4 +1,6 @@
 **de-project-key.json
+**dev-sa-key.json
+**stg-sa-key.json
 *.tfstate
 *.tfstate.*
 **.terraform
