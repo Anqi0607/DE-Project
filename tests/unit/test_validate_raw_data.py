@@ -10,8 +10,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.utils import AnalysisException
 
-
-from metar_etl.validate_raw_data import validate_raw_data_with_spark, compare_schemas
+from scripts.validate_raw_data import validate_raw_data_with_spark, compare_schemas
 
 # -------------------------------------------------------------------
 # Dummy Classes and Helper Functions for Simulation
@@ -102,7 +101,7 @@ def test_validate_raw_data_no_blobs(monkeypatch, dummy_execution_date):
     Test that validate_raw_data_with_spark raises ValueError when no blobs are found.
     """
     dummy_client = DummyStorageClient([])
-    monkeypatch.setattr("metar_etl.validate_raw_data.storage.Client", lambda: dummy_client)
+    monkeypatch.setattr("scripts.validate_raw_data.storage.Client", lambda: dummy_client)
     
     with pytest.raises(ValueError, match="No files found under path"):
         validate_raw_data_with_spark("dummy_bucket", "METAR",
@@ -120,11 +119,11 @@ def test_validate_raw_data_valid(monkeypatch, dummy_execution_date, dummy_storag
     # 构造一个包含这两个场景的 blob 列表
     dummy_blobs = [dummy_blob_empty, dummy_blob_valid]
     dummy_client = DummyStorageClient(dummy_blobs)
-    monkeypatch.setattr("metar_etl.validate_raw_data.storage.Client", lambda: dummy_client)
+    monkeypatch.setattr("scripts.validate_raw_data.storage.Client", lambda: dummy_client)
     
     # 使用 DummySparkSession (需要确保其 parquet() 方法返回一个固定 DataFrame)
     dummy_spark = DummySparkSession()
-    monkeypatch.setattr("metar_etl.validate_raw_data.get_spark_session", lambda app_name: dummy_spark)
+    monkeypatch.setattr("scripts.validate_raw_data.get_spark_session", lambda app_name: dummy_spark)
     
     # 调用待测试函数
     validate_raw_data_with_spark("dummy_bucket", "METAR", data_interval_start=dummy_execution_date)

@@ -1,4 +1,3 @@
-# tests/unit/test_load_to_bucket.py
 import os
 import io
 import sys

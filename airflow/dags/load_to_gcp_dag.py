@@ -4,8 +4,6 @@ from datetime import datetime, timedelta
 import os
 import sys
 
-# test for CI
-
 # 添加脚本所在目录
 sys.path.append("/opt/airflow")
 sys.path.append("/opt/airflow/scripts")

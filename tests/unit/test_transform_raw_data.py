@@ -8,8 +8,8 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 
 # 导入 transform_raw_data_dynamic 函数
-from metar_etl.transform_raw_data import transform_raw_data_dynamic
-import metar_etl.transform_raw_data as trd  # 用于修改 config 参数
+from scripts.transform_raw_data import transform_raw_data_dynamic
+import scripts.transform_raw_data as trd  # 用于修改 config 参数
 
 # -------------------------------------------------------------------
 # Dummy function to simulate Spark reading a Parquet file
@@ -180,7 +180,7 @@ def test_transform_raw_data_dynamic(monkeypatch, dummy_execution_date, dummy_spa
     expected_output = "gs://dummy_bucket/Bronze/TEST/2023/01"
     
     # 替换 get_spark_session 为 dummy_spark
-    monkeypatch.setattr("metar_etl.transform_raw_data.get_spark_session", lambda app_name, temp_bucket="": dummy_spark)
+    monkeypatch.setattr("scripts.transform_raw_data.get_spark_session", lambda app_name, temp_bucket="": dummy_spark)
     
     # 为防止 transform_raw_data_dynamic 调用 spark.stop() 后关闭 SparkContext，
     # 覆盖 dummy_spark.stop() 为不执行任何操作
