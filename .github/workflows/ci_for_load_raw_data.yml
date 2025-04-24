@@ -52,7 +52,14 @@ jobs:
 
       - name: Run integration text in Airflow container
         run: |
-          docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH=/opt/airflow && pytest tests/integration/test_load_to_gcp_dag.py"
+          docker exec docker-airflow-worker-1 bash -lc "\
+            mkdir -p /tmp/airflow/logs && \
+            export AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs && \
+            export AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs && \
+            export PYTHONPATH=/opt/airflow && \
+            cd /opt/airflow && \
+            pytest tests/integration/test_load_to_gcp_dag.py -q \
+          "
 
       - name: Stop Docker containers
         run: |
