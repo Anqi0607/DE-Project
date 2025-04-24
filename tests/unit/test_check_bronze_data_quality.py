@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 from pyspark.sql import SparkSession, DataFrame
-import metar_etl.check_bronze_data_quality as cbq
+import scripts.check_bronze_data_quality as cbq
 
 # 修改 dummy_read_parquet，使其返回问题数据
 def dummy_read_parquet(uri, spark):
