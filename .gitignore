@@ -23,3 +23,5 @@ lib/
 airflow.scripts.egg-info/
 metar_etl.egg-info/
 
+dev-sa-key.json
+stg-sa-key.json
