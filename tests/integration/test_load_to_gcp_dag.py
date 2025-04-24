@@ -1,19 +1,24 @@
+# import env first
 import os
+from dotenv import load_dotenv
+
+env_file = "/opt/airflow/.env.staging"
+if os.path.exists(env_file):
+    # 本地调试时加载 .env.staging，
+    # CI 环境里通常不会挂载这个文件，就会跳过
+    load_dotenv(dotenv_path=env_file, override=True)
+
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 import glob
 import pandas as pd
 import pytest
 from airflow.models import DagBag, TaskInstance
 from airflow.utils.state import State
+from google.cloud import storage
 
 import scripts.load_to_bucket as lb
 import config
-
-
-# 用来收集所有被“上传”到 GCS 的本地文件路径
-# 实际存储为 (blob_path, local_path)
-uploaded_files = []
 
 @pytest.fixture
 def patch_config_and_external(tmp_path, monkeypatch):
@@ -26,45 +31,62 @@ def patch_config_and_external(tmp_path, monkeypatch):
     # 2) Monkey-patch 配置
     monkeypatch.setattr(config, "CSV_DIR", str(csv_dir))
     monkeypatch.setattr(config, "PARQUET_DIR", str(parquet_dir))
-    monkeypatch.setattr(config, "BUCKET_NAME", "fake-bucket")
-    monkeypatch.setattr(config, "GCS_PREFIX", "fake-prefix")
 
     # 3) Mock get_stations_from_network → 固定返回一个站点
     monkeypatch.setattr(lb, "get_stations_from_network", lambda state: ["AAA"])
 
     # 4) Mock download_data → 生成一个小 DataFrame，写成 CSV
     def fake_download_data(url, station, failed_stations=None):
-        df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+        sample_data = {
+            "station": ["ST01", "ST02", "ST03", "ST02"],
+            "valid": [
+                "2023-01-01 12:00", 
+                "2023-01-01 12:30", 
+                "2023-01-01 13:00", 
+                (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+            ],
+            "lon": ["100.0", "110.0", "M", "120.0"],
+            "lat": ["50.0", "55.0", "60.0", "M"],
+            "tmpf": ["22.0", 24.0, 20.0, "M"],
+            "dwpf": ["18.0", "M", 16.0, 20.0],
+            "relh": [85.0, "M", 90.0, 80.0],
+            "drct": [180, 90, 270, "M"],
+            "sknt": [10, 15, 5, "M"],
+            "p01i": [0.1, 0.2, 0.0, "M"],
+            "alti": [1013, 1015, 1012, "M"],
+            "mslp": [1011, 1013, 1010, "M"],
+            "vsby": [10, 8, 12, "M"],
+            "gust": [15, 20, 10, "M"],
+            "skyc1": ["CLR", "FEW", "SCT", "BKN"],
+            "skyc2": ["FEW", "SCT", "BKN", "OVC"],
+            "skyc3": ["BKN", "OVC", "CLR", "FEW"],
+            "skyc4": ["OVC", "FEW", "SCT", "CLR"],
+            "skyl1": [0.0, 0.0, 0.0, 0.0],
+            "skyl2": [1000, 1500, 1200, "M"],
+            "skyl3": [3000, 3500, 4000, "M"],
+            "skyl4": [5000, 6000, 7000, "M"],
+            "wxcodes": ["RA", "SN", "TS", "M"],
+            "ice_accretion_1hr": [0.0, 0.1, 0.0, "M"],
+            "ice_accretion_3hr": [0.2, 0.3, 0.0, "M"],
+            "ice_accretion_6hr": [0.5, 0.4, 0.0, "M"],
+            "peak_wind_gust": [30, 35, 40, "M"],
+            "peak_wind_drct": [180, 90, 270, "M"],
+            "peak_wind_time": [
+                "2023-01-01 12:10", 
+                "2023-01-01 12:40", 
+                "2023-01-01 13:05", 
+                (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+            ], 
+            "feel": [22, 25, 19, "M"],
+            "snowdepth": [0.0, 0.0, "M", 0.0]
+        }
+        df = pd.DataFrame(sample_data)
         yield df
     monkeypatch.setattr(lb, "download_data", fake_download_data)
 
-    # 5) Mock GCS 客户端，将上传的文件路径记录到 uploaded_files
-
-    # Blob为一个可以对blob（bucket里的文件path）进行操作的对象
-    # 因此它需要一个upload_from_filename method
-    class DummyBlob:
-        def __init__(self, blob_name):
-            # 记录远端对象名
-            self.blob_name = blob_name
-        def upload_from_filename(self, local_path):
-            # 将 (远端对象名, 本地文件路径) 记录下来
-            uploaded_files.append((self.blob_name, local_path))
-
-    class DummyBucket:
-        def blob(self, blob_path):
-            # blob_path 是 DAG 中拼好的远端存储路径
-            return DummyBlob(blob_path)
-
-    monkeypatch.setattr(
-        "google.cloud.storage.Client",
-        # create 一个 class C，它有一个 bucket(self, b) 方法，调用时返回 DummyBucket()
-        # () 表示立即实例化这个 class C
-        lambda: type("C", (), {"bucket": lambda self, b: DummyBucket()})()
-    )
-
     cfg = {"csv_dir": str(csv_dir), 
-           "parquet_dir": str(parquet_dir), 
-           "uploaded": uploaded_files}
+           "parquet_dir": str(parquet_dir)
+           }
 
     yield cfg
 
@@ -106,32 +128,29 @@ def test_dag_end_to_end(patch_config_and_external):
     # 转换阶段应在 PARQUET_DIR/2023/01 下生成 .parquet 目录
     parquet_subdir = os.path.join(cfg["parquet_dir"], "2023", "01")
     assert os.path.isdir(parquet_subdir), f"Expected directory {parquet_subdir}"
-    parquet_entries = os.listdir(parquet_subdir)
-    # 至少有一个以 .parquet 结尾的目录
-    assert any(entry.startswith("AAA_202301_") and entry.endswith(".parquet") 
-               for entry in parquet_entries), \
-        f"No parquet directories found in {parquet_subdir}"
+
+    expected_basename = "AAA_202301_chunk0.parquet"
+    expected_parquet_dir = os.path.join(parquet_subdir, expected_basename)
+    assert os.path.isdir(expected_parquet_dir)
+
+    # 目录里至少含一个 part-*.parquet
+    parts = glob.glob(os.path.join(expected_parquet_dir, "part-*.parquet"))
+    assert parts, f"No part file in {expected_parquet_dir}"
 
     # ---- upload_to_gcs ----
     ti_upload = TaskInstance(task=dag.get_task("upload_to_gcs"), execution_date=exec_date)
     ti_upload.run(ignore_ti_state=True)
     assert ti_upload.state == State.SUCCESS
 
-    # 上传阶段应至少调用一次 upload_from_filename
-    assert cfg["uploaded"], "No files were uploaded to GCS"
+    client = storage.Client()
+    bucket = client.bucket(config.BUCKET_NAME)
+    prefix = f"{config.GCS_PREFIX}/2023/01/AAA"
+    blobs = list(bucket.list_blobs(prefix=prefix))
 
-    # 并且校验远端 blob_path 和本地路径
-    expected_basename = "AAA_202301_chunk0.parquet"
-    expected_partquet_subdir = os.path.join(cfg["parquet_dir"], "2023", "01", expected_basename)
-    part_files = glob.glob(os.path.join(expected_partquet_subdir, "part-*.parquet"))
-    assert part_files, f"No part file found in {parquet_subdir}"
-    expected_local = part_files[0]
+    names = [b.name for b in blobs]
+    expected_blob = f"{config.GCS_PREFIX}/2023/01/AAA/{expected_basename}"
+    assert expected_blob in names, f"{expected_blob} not found in staging bucket; got {names}"
 
-    for blob_name, local_path in cfg["uploaded"]:
-        assert blob_name == f"fake-prefix/2023/01/AAA/{expected_basename}",f"Expected parquet not uploaded"
-        assert local_path.startswith(parquet_subdir), f"Local path {local_path} not under {parquet_subdir}"
-        assert os.path.exists(local_path), f"Local file {local_path} missing"
-        assert local_path == expected_local, f"Expected upload of {expected_local}, but got {local_path}"
     # ---- cleanup_local_files ----
     ti_cleanup = TaskInstance(task=dag.get_task("cleanup_local_files"), execution_date=exec_date)
     ti_cleanup.run(ignore_ti_state=True)
