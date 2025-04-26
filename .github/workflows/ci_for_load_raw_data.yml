@@ -38,6 +38,11 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version  # Verify installation
 
+      - name: Prepare logs directory permissions
+        run: |
+          mkdir -p airflow/logs
+          sudo chown -R 50000:50000 airflow/logs
+
       - name: Build Docker image
         run: |
           docker build --cache-from=ci-test-for-load-image -t ci-test-for-load-image -f docker/Dockerfile .
