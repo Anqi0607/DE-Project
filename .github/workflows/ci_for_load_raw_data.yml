@@ -53,12 +53,13 @@ jobs:
       - name: Run integration tests in Airflow container
         run: |
           docker exec -u root docker-airflow-worker-1 bash -lc "\
-                pip install pytest && \
+                pip install pytest python-dotenv && \
                 mkdir -p /tmp/airflow/logs/scheduler && \
                 chmod -R 777 /opt/airflow/logs && \
                 export AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs && \
                 export AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/scheduler && \
-                export PYTHONPATH=/opt/airflow && cd /opt/airflow && \
+                export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && \
+                cd /opt/airflow && \
                 pytest tests/integration/test_load_to_gcp_dag.py -v \
               "
 
