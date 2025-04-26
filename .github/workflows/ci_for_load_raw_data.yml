@@ -52,7 +52,7 @@ jobs:
 
       - name: Run integration tests in Airflow container
         run: |
-          docker exec docker-airflow-worker-1 bash -lc "\
+          docker exec -u root docker-airflow-worker-1 bash -lc "\
             mkdir -p /tmp/airflow/logs/scheduler && \
             chmod -R 777 /opt/airflow/logs && \
             export AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs && \
@@ -61,9 +61,6 @@ jobs:
             pytest tests/integration/test_load_to_gcp_dag.py -v --tb=short \
           "
 
-
-
-          
       - name: Stop Docker containers
         run: |
           docker-compose -f docker/docker-compose.yml down
