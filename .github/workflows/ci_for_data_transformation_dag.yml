@@ -67,6 +67,16 @@ jobs:
             pytest tests/integration/test_data_transformation_dag.py -q \
           "
       
+      - name: Install Dbt
+        run: |
+          pip install dbt
+
+      - name: Install Dbt dependencies
+        run: |
+          dbt deps
+      
+      - name: Generate profiles.yml
+
       - name: Stop Docker containers
         run: |
           docker-compose -f docker/docker-compose.yml down
