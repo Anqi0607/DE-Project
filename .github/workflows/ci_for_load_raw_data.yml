@@ -18,10 +18,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Write GCP service account key
-        run: |
-          mkdir -p airflow/.google/credentials
-          echo "${{ secrets.GCP_SA_KEY }}" > airflow/.google/credentials/dev-sa-key.json
+      # - name: Write GCP service account key
+      #   run: |
+      #     mkdir -p airflow/.google/credentials
+      #     echo "${{ secrets.GCP_SA_KEY }}" > airflow/.google/credentials/dev-sa-key.json
 
       # Cache Docker layers to speed up the build process
       - name: Cache Docker layers
