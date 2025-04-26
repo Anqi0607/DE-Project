@@ -50,15 +50,20 @@ jobs:
         run: |
           docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
 
-      - name: Run integration tests in Airflow container
+      - name: Run integration tests with tmp logs
+        shell: bash
         run: |
-          docker exec docker-airflow-worker-1 bash -lc "\
-            export AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs && \
-            export AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/processors && \
-            mkdir -p /tmp/airflow/logs/scheduler /tmp/airflow/logs/processors && \
-            pytest tests/integration/test_load_to_gcp_dag.py\
-          "
-
+          docker exec \
+            -e AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs \
+            -e AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/processors \
+            docker-airflow-worker-1 \
+            bash -lc "\
+              mkdir -p /tmp/airflow/logs/scheduler /tmp/airflow/logs/processors && \
+              echo '>>> base log folder:' \$AIRFLOW__LOGGING__BASE_LOG_FOLDER && \
+              echo '>>> processor log folder:' \$AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER && \
+              pytest tests/integration/test_load_to_gcp_dag.py\
+            "
+            
       - name: Stop Docker containers
         run: |
           docker-compose -f docker/docker-compose.yml down
