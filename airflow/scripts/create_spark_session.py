@@ -22,7 +22,7 @@ def get_spark_session(app_name="DefaultApp", master=None, temp_bucket="", extra_
     """
     # If master is not provided, get it from the environment variable
     if master is None:
-        master = os.getenv("SPARK_MASTER", "local[*]")
+        master = os.getenv("SPARK_MASTER", "local[1]")
     
     credentials_location = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     if not credentials_location:
@@ -38,8 +38,8 @@ def get_spark_session(app_name="DefaultApp", master=None, temp_bucket="", extra_
         .set("spark.hadoop.google.cloud.auth.service.account.json.keyfile", credentials_location) \
         .set("spark.sql.parquet.enableVectorizedReader", "false") \
         .set("spark.jars.packages", "com.google.cloud.spark:spark-bigquery-with-dependencies_2.12:0.30.0") \
-        .set("spark.driver.memory", "4g") \
-        .set("spark.executor.memory", "4g")
+        .set("spark.driver.memory", "512m") \
+        .set("spark.executor.memory", "512m")
     
     if temp_bucket:
         conf.set("temporaryGcsBucket", temp_bucket)
