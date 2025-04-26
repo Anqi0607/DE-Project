@@ -55,6 +55,11 @@ jobs:
         run: |
           docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
 
+      - name: Check docker container memory status
+        run: |
+          docker inspect docker-airflow-worker-1 \
+            --format 'OOMKilled={{.State.OOMKilled}}; Memory={{.HostConfig.Memory}}'
+
       - name: Run integration tests
         run: |
           docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_gcp_dag.py"
