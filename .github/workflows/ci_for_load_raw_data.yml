@@ -48,25 +48,20 @@ jobs:
 
       - name: Run unit tests in Airflow container
         run: |
-          docker exec docker-airflow-worker-1 sh -c "\
+          docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
+
+      - name: Run integration tests in Airflow container
+        run: |
+          docker exec -u root docker-airflow-worker-1 bash -lc "\
+            pip install apache-airflow-providers-google python-dotenv numpy pyarrow pandas sqlalchemy psycopg2-binary pyspark google-cloud-storage apache-airflow-providers-apache-spark apache-airflow-providers-dbt-cloud pytest && \
+            mkdir -p /tmp/airflow/logs/scheduler && \
+            chmod -R 777 /opt/airflow/logs && \
+            export AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs && \
+            export AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/scheduler && \
             export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && \
-            pytest /opt/airflow/tests/unit/test_load_to_bucket.py && \
-            pytest /opt/airflow/tests/integration/test_load_to_gcp_dag.py -v \
+            cd /opt/airflow && \
+            pytest tests/integration/test_load_to_gcp_dag.py -v \
           "
-
-
-      # - name: Run integration tests in Airflow container
-      #   run: |
-      #     docker exec -u root docker-airflow-worker-1 bash -lc "\
-      #           pip install pytest python-dotenv && \
-      #           mkdir -p /tmp/airflow/logs/scheduler && \
-      #           chmod -R 777 /opt/airflow/logs && \
-      #           export AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs && \
-      #           export AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/scheduler && \
-      #           export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && \
-      #           cd /opt/airflow && \
-      #           pytest tests/integration/test_load_to_gcp_dag.py -v \
-      #         "
 
       - name: Stop Docker containers
         run: |
