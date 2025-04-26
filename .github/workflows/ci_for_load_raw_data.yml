@@ -32,11 +32,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-docker-  # Fallback cache key if specific key not found
 
-      - name: Prepare logs directory permissions
-        run: |
-          mkdir -p airflow/logs
-          sudo chown -R 50000:50000 airflow/logs
-
       - name: Install Docker Compose
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -55,12 +50,16 @@ jobs:
         run: |
           docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/unit/test_load_to_bucket.py"
 
-      - name: Check host OOM logs
-        run: sudo dmesg | grep -i kill || echo "no oom messages"
-
       - name: Run integration tests
         run: |
-          docker exec docker-airflow-worker-1 sh -c "export PYTHONPATH='/opt/airflow/scripts:$PYTHONPATH' && pytest /opt/airflow/tests/integration/test_load_to_gcp_dag.py"
+          docker exec \
+            -e AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs \
+            -e AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/processors \
+            docker-airflow-worker-1 \
+            bash -c "\
+              mkdir -p /tmp/airflow/logs/scheduler /tmp/airflow/logs/processors && \
+              pytest tests/integration/test_load_to_gcp_dag.py\
+            "
 
       - name: Stop Docker containers
         run: |
