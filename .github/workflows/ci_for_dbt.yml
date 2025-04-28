@@ -58,10 +58,11 @@ jobs:
       - name: Dbt build
         run: |
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
-          echo "Profiles path: ~/.dbt/profiles.yml"
-          cat ~/.dbt/profiles.yml
-          dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
-      
+          export DBT_PROFILES_DIR=/home/runner/.dbt  # 使用绝对路径指定 profiles.yml
+          echo "Profiles path: $DBT_PROFILES_DIR/profiles.yml"
+          cat $DBT_PROFILES_DIR/profiles.yml  # 打印文件内容，确保文件生成成功
+          dbt build --profiles-dir $DBT_PROFILES_DIR/profiles.yml --project-dir $DBT_PROJECT_DIR
+
       # dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
     
 
