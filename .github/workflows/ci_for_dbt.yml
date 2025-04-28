@@ -16,11 +16,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Write GCP service account key
+      - name: Restore GCP keyfile
         run: |
           mkdir -p dbt/.google/credentials
-          echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > dbt/.google/credentials/stg-sa-key.json
-
+          echo "${{ secrets.GCP_STG_CREDENTIAL }}" | jq . > dbt/.google/credentials/stg-sa-key.json
+      
       - name: Install dbt with sudo
         run: |
           sudo pip install dbt
@@ -40,21 +40,11 @@ jobs:
             outputs:
               staging:
                 type: bigquery
-                method: service-account-json
+                method: service-account
                 project: ${{ secrets.GCP_PROJECT_ID }}
                 dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
                 threads: 1
-                keyfile_json:
-                  type: service_account
-                  project_id: just-camera-454714-e8
-                  private_key_id: be9b518aba181b80b8416b814c3045c7584347af
-                  private_key: ${{ secrets.GCP_PRIVATE_KEY }}
-                  client_email: staging-terraform-sa@***.iam.gserviceaccount.com
-                  client_id: 110582212550182543890
-                  auth_uri: https://accounts.google.com/o/oauth2/auth
-                  token_uri: https://oauth2.googleapis.com/token
-                  auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
-                  client_x509_cert_url: https://www.googleapis.com/robot/v1/metadata/x509/staging-terraform-sa%40***.iam.gserviceaccount.com
+                keyfile: home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json
                 location: US
                 timeout_seconds: 300
           " > ~/.dbt/profiles.yml
