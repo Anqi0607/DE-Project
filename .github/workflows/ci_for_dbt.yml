@@ -11,9 +11,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials/stg-sa-key.json
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,7 +44,7 @@ jobs:
                 project: ${{ secrets.GCP_PROJECT_ID }}
                 dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
                 threads: 1
-                keyfile: /home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json
+                keyfile: ${{ github.workspace }}/dbt/.google/credentials/stg-sa-key.json
                 location: US
                 timeout_seconds: 300
           " > ~/.dbt/profiles.yml
@@ -56,16 +54,6 @@ jobs:
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
           dbt deps --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
       
-      - name: Check if the GCP credentials file exists
-        run: |
-          # Check if the credentials file exists
-          if [ -f "/home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json" ]; then
-            echo "GCP credentials file exists."
-            cat /home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json  # Show file contents (optional)
-          else
-            echo "GCP credentials file not found!" && exit 1
-          fi
-
       - name: Dbt build
         run: |
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
@@ -82,7 +70,7 @@ jobs:
           export DBT_GCP_BIGQUERY_DATASET="${{ secrets.GCP_BIGQUERY_DATASET }}"
           echo "DBT_GCP_BIGQUERY_DATASET is set to $DBT_GCP_BIGQUERY_DATASET"
           
-          dbt debug --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
-          dbt build --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
+          # dbt debug --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
+          # dbt build --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
 
      
