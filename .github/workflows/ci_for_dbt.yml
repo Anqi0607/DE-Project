@@ -60,6 +60,7 @@ jobs:
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
           echo "Profiles path: ~/.dbt/profiles.yml"
           cat ~/.dbt/profiles.yml
+          dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
       
       # dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
     
