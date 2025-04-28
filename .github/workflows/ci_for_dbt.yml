@@ -34,57 +34,30 @@ jobs:
       - name: Generate profiles.yml
         run: |
           mkdir -p ~/.dbt
-          echo "default:
-        target: staging
-        outputs:
-          staging:
-            type: bigquery
-            method: service-account-json
-            project: ${{ secrets.GCP_PROJECT_ID }}
-            dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
-            threads: 1
-            keyfile_json:
-              type: service_account
-              project_id: just-camera-454714-e8
-              private_key_id: be9b518aba181b80b8416b814c3045c7584347af
-              private_key: |
-                -----BEGIN PRIVATE KEY-----
-                MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC3mhw1KStQ5Vxrn
-                wtdF4yEuhdMRNCz0A7lEFCNNZll8BBFdaDmrbd+9USy0m7AsnmoCWosuqTELFDDOn
-                U1tg/gaoMt5Xh9GDgHdL3WhhvOSKEEgUW8EhHraZKvdtWBC1xMIFl2MVQh9MDF8Xn
-                lv5IHGBj06VcIls9H07j9cL2/DRrt6yEhte5En81I8MBOk4xwmd77J0KShQhsNtmn
-                7yx1c7IS4uUKIIwFPcHuBTK3vqgnSApqlSWI8on9vwMbqDDSnmfL3E2FZY8eoHgMn
-                uaBOCjUioTG2SuZPLUbxoyHyi1n3Ha2y8k1gYUiFpkafSesCJCrFdaysukaeGnf0n
-                6Qjk7G3hAgMBAAECggEAW3H5AatPJTwPo6aINQlS0gqaXTO4/hJKuLM1AAxtnlyin
-                T30lWBJiATeIhi4S+a4vC5wQPX3MbQGx61nOJglvxF+NqVf+zLnz8QfGQQPlajSAn
-                yg8HKplTBgfF86KMtBPbNRC5K3HjB6wTwrqUTNNBWQclkbWU7uUElHqoD/7+lvUqny
-                cT4+u59YmkvFapPSnpxKN0W+5jSrhCt5NuLWO/Oa8A7e3UnH/n2XIgK32NJsvHcn8
-                qIwi4m7VhIra81ZpsHotcwu1Uo1X+fjbXlbMWhYP6FYUEcdakK52PNl4W7uL5junO
-                OsUfSy9TiPWYCyCMVAZAiZla59vCsPG1KDwopfc3wKBgQD6wBCrW+Ngm2XkKWIxnP
-                bQLAQycz0xKiBbgNRCzVQenTHV2yOQtFOzlZDYYKZDiJZm94bDiInRN1MxpKvWpn2
-                Cq3aEdkn+1aqf+yS8HvXs8pOwTHF8klhxMpyfb26y8LnKPJD5zco97QD3Fdwlg8nw
-                YE9sv2hoGeyCLwxM02o3onTCwKBgQC7cidO7IfYp9CkZ2QwecYLvHdTFoEd1hMGn5
-                133t5EbsQf6hnuJMtJp5YXvb7RV0Vdm3u0DsRNj0Ykzys2Iwv/D43B7oor6rk0+ni
-                ZxqZP1ZnnbwscPty9aGJBMfHOv+HiAELM2xxESub8pIdGSWFBpVcB3ItLhLxwS1nC8
-                smtq3WQwKBgGZRNPwXVKK5BkyhrlWVbgAHf5QE6oaHHX6DaLskeSkFA/Fia+kRnXt
-                EDoSce3uXIngFjNIAxuu9/Y6GOTAvwDw4j2O3wbDPQpmukihAYycNzN7HdvNA5nW9
-                JzfPioYtwEILkMS9+kZmjTxFiT0tmHxCre/KuU/nshIVmaK5g6pladAoGBAJqFnzl
-                XHs20tWlhNS1CS8mp2YT/Di4kXEvRcAyDU2PClDdi+yFQf60mVBsaNpXIhcxXAnrE6
-                gyUU+VQa3JpyZc9L+SZoCMuPYkKD/PEyRGDGq6o4dXVFI+n32ezTo2LrSBr6qnWJ8
-                1FxFd4rm8CbeWtua72DG+mTcOx5igMkalzcSVAoGAFRUhANFAMrNxzuz8TLJLnTM0
-                e1S25ICsSc6o1ylu+pk9EwWR7gCGSPeVTBCBFpPCmBEr5FaP7zUDASEZeBubJnLRe
-                6Mwk4hCtDBuBDCdLotOixA7fszKWMukt2AR1XmD6nhmAp9p0JAJYssT4LfrrtnP8H
-                UH2UfYMcLmOGynEPFWFs=
-                -----END PRIVATE KEY-----
-              client_email: staging-terraform-sa@***.iam.gserviceaccount.com
-              client_id: 110582212550182543890
-              auth_uri: https://accounts.google.com/o/oauth2/auth
-              token_uri: https://oauth2.googleapis.com/token
-              auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
-              client_x509_cert_url: https://www.googleapis.com/robot/v1/metadata/x509/staging-terraform-sa%40***.iam.gserviceaccount.com
-            location: US
-            timeout_seconds: 300" > ~/.dbt/profiles.yml
-
+          echo "
+          default:
+            target: staging
+            outputs:
+              staging:
+                type: bigquery
+                method: service-account-json
+                project: ${{ secrets.GCP_PROJECT_ID }}
+                dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
+                threads: 1
+                keyfile_json:
+                  type: service_account
+                  project_id: just-camera-454714-e8
+                  private_key_id: be9b518aba181b80b8416b814c3045c7584347af
+                  private_key: ${{ secrets.GCP_PRIVATE_KEY }}
+                  client_email: staging-terraform-sa@***.iam.gserviceaccount.com
+                  client_id: 110582212550182543890
+                  auth_uri: https://accounts.google.com/o/oauth2/auth
+                  token_uri: https://oauth2.googleapis.com/token
+                  auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
+                  client_x509_cert_url: https://www.googleapis.com/robot/v1/metadata/x509/staging-terraform-sa%40***.iam.gserviceaccount.com
+                location: US
+                timeout_seconds: 300
+          " > ~/.dbt/profiles.yml
       
       - name: Install Dbt dependencies
         run: |
