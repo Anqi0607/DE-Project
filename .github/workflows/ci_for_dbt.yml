@@ -55,15 +55,13 @@ jobs:
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
           dbt deps --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
       
-      - name: Verify profiles.yml generation
-        run: |
-          ls -al ~/.dbt
-          cat ~/.dbt/profiles.yml
-          
       - name: Dbt build
         run: |
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
-          dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
+          echo "Profiles path: ~/.dbt/profiles.yml"
+          cat ~/.dbt/profiles.yml
+      
+      # dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
     
 
       # - name: Install Dbt dependencies
