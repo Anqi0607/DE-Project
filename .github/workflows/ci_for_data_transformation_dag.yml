@@ -64,9 +64,9 @@ jobs:
               # pytest tests/integration/test_load_to_gcp_dag.py\
             "
       
-      - name: Install Dbt
-        run: |
-          pip install dbt
+      # - name: Install Dbt
+      #   run: |
+      #     pip install dbt
 
       # - name: Install Dbt dependencies
       #   run: |
