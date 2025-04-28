@@ -24,6 +24,9 @@ jobs:
         with:
           workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WORKLOAD_IDENTITY_POOL }}/providers/${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}"
           service_account: ${{ secrets.GCP_SA_EMAIL }}
+          token_format: "access_token"                             # ← 改成取 Access Token
+          access_token_scopes: "https://www.googleapis.com/auth/cloud-platform"
+          export_environment_variables: true
       
       - name: Install dbt with sudo
         run: |
