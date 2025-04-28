@@ -23,11 +23,11 @@ jobs:
           mkdir -p airflow/.google/credentials
           echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > airflow/.google/credentials/stg-sa-key.json
 
-      - name: Install dbt
+      - name: Install dbt with sudo
         run: |
-          export PIP_USER=true
-          pip install --user dbt
+          sudo pip install dbt
           dbt --version
+
 
 
       # - name: Install Dbt dependencies
