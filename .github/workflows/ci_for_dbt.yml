@@ -52,7 +52,8 @@ jobs:
       
       - name: Install Dbt dependencies
         run: |
-          dbt deps --profiles-dir ~/.dbt/profiles.yml
+          export DBT_PROJECT_DIR=/home/runner/work/DE-Project/dbt
+          dbt deps --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
 
 
       # - name: Install Dbt dependencies
