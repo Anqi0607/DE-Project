@@ -57,6 +57,7 @@ jobs:
       
       - name: Dbt build
         run: |
+          export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
           dbt build --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
     
 
