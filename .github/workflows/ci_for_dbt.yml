@@ -45,7 +45,7 @@ jobs:
                 project: ${{ secrets.GCP_PROJECT_ID }}
                 dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
                 threads: 1
-                keyfile: dbt/.google/credentials/stg-sa-key.json
+                keyfile: /home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json
                 location: US
                 timeout_seconds: 300
           " > ~/.dbt/profiles.yml
