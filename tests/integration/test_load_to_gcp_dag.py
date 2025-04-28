@@ -33,7 +33,7 @@ def patch_config_and_external(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PARQUET_DIR", str(parquet_dir))
 
     # 3) Mock get_stations_from_network → 固定返回一个站点
-    monkeypatch.setattr(lb, "get_stations_from_network", lambda state: ["AAA"])
+    monkeypatch.setattr(lb, "get_stations_from_network", lambda state: ["ST01", "ST02", "ST03"])
 
     # 4) Mock download_data → 生成一个小 DataFrame，写成 CSV
     def fake_download_data(url, station, failed_stations=None):
@@ -113,12 +113,16 @@ def test_dag_end_to_end(patch_config_and_external):
     assert ti_download.state == State.SUCCESS
 
     # 下载阶段应在 CSV_DIR/2023/01 里生成 .csv 文件
+    stations = lb.get_stations_from_network(config.STATE)
     csv_subdir = os.path.join(cfg["csv_dir"], "2023", "01")
     assert os.path.isdir(csv_subdir), f"Expected directory {csv_subdir}"
     files = os.listdir(csv_subdir)
-    assert any(f.startswith("AAA_202301_") and f.endswith(".csv")
+
+    for station in stations:
+        csv_prefix = f"{station}_202301_"
+        assert any(f.startswith(csv_prefix) and f.endswith(".csv")
                for f in files), \
-        f"No CSV files with prefix AAA_202301_ in {csv_subdir}, found {files}"
+        f"No CSV files with prefix {csv_prefix} in {csv_subdir}, found {files}"
 
     # ---- convert_parquet ----
     ti_convert = TaskInstance(task=dag.get_task("convert_parquet"), execution_date=exec_date)
@@ -129,13 +133,14 @@ def test_dag_end_to_end(patch_config_and_external):
     parquet_subdir = os.path.join(cfg["parquet_dir"], "2023", "01")
     assert os.path.isdir(parquet_subdir), f"Expected directory {parquet_subdir}"
 
-    expected_basename = "AAA_202301_chunk0.parquet"
-    expected_parquet_dir = os.path.join(parquet_subdir, expected_basename)
-    assert os.path.isdir(expected_parquet_dir)
+    for station in stations:
+        expected_basename = f"{station}_202301_chunk0.parquet"
+        expected_parquet_dir = os.path.join(parquet_subdir, expected_basename)
+        assert os.path.isdir(expected_parquet_dir)
 
-    # 目录里至少含一个 part-*.parquet
-    parts = glob.glob(os.path.join(expected_parquet_dir, "part-*.parquet"))
-    assert parts, f"No part file in {expected_parquet_dir}"
+        # 目录里至少含一个 part-*.parquet
+        parts = glob.glob(os.path.join(expected_parquet_dir, "part-*.parquet"))
+        assert parts, f"No part file in {expected_parquet_dir}"
 
     # ---- upload_to_gcs ----
     ti_upload = TaskInstance(task=dag.get_task("upload_to_gcs"), execution_date=exec_date)
@@ -144,12 +149,14 @@ def test_dag_end_to_end(patch_config_and_external):
 
     client = storage.Client()
     bucket = client.bucket(config.BUCKET_NAME)
-    prefix = f"{config.GCS_PREFIX}/2023/01/AAA"
-    blobs = list(bucket.list_blobs(prefix=prefix))
 
-    names = [b.name for b in blobs]
-    expected_blob = f"{config.GCS_PREFIX}/2023/01/AAA/{expected_basename}"
-    assert expected_blob in names, f"{expected_blob} not found in staging bucket; got {names}"
+    for station in stations:
+        blob_prefix = f"{config.GCS_PREFIX}/2023/01/{station}"
+        blobs = list(bucket.list_blobs(prefix=blob_prefix))
+
+        names = [b.name for b in blobs]
+        expected_blob = f"{config.GCS_PREFIX}/2023/01/{station}/{station}_202301_chunk0.parquet"
+        assert expected_blob in names, f"{expected_blob} not found in staging bucket; got {names}"
 
     # ---- cleanup_local_files ----
     ti_cleanup = TaskInstance(task=dag.get_task("cleanup_local_files"), execution_date=exec_date)

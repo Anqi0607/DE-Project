@@ -12,7 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials/dev-sa-key.json
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials/stg-sa-key.json
 
     steps:
       - name: Checkout code
@@ -21,7 +21,7 @@ jobs:
       - name: Write GCP service account key
         run: |
           mkdir -p airflow/.google/credentials
-          echo "${{ secrets.GCP_SA_KEY }}" > airflow/.google/credentials/dev-sa-key.json
+          echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > airflow/.google/credentials/stg-sa-key.json
 
       # Cache Docker layers to speed up the build process
       - name: Cache Docker layers
@@ -52,6 +52,27 @@ jobs:
           && pytest /opt/airflow/tests/unit/test_validate_raw_data.py \
           /opt/airflow/tests/unit/test_transform_raw_data.py \
           /opt/airflow/tests/unit/test_check_bronze_data_quality.py"
+      
+      - name: Run integration tests
+        run: |
+          docker exec \
+            -e AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow/logs \
+            -e AIRFLOW__LOGGING__PROCESSOR_LOG_FOLDER=/tmp/airflow/logs/processors \
+            docker-airflow-worker-1 \
+            bash -c "\
+              mkdir -p /tmp/airflow/logs/scheduler /tmp/airflow/logs/processors # && \
+              # pytest tests/integration/test_load_to_gcp_dag.py\
+            "
+      
+      # - name: Install Dbt
+      #   run: |
+      #     pip install dbt
+
+      # - name: Install Dbt dependencies
+      #   run: |
+      #     dbt deps
+      
+      # - name: Generate profiles.yml
 
       - name: Stop Docker containers
         run: |

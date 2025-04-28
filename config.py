@@ -12,6 +12,8 @@ CSV_DIR = "csv"
 PARQUET_DIR = "parquet"
 
 BUCKET_NAME = os.getenv("GCP_GCS_BUCKET")
-GCS_PREFIX = f"METAR/{STATE}/Raw"
-
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+GCP_BIGQUERY_DATASET = os.getenv("GCP_BIGQUERY_DATASET")
 TEMP_BUCKET = "de-zoomcamp-project-tem-bucket-pebbles"
+
+GCS_PREFIX = f"METAR/{STATE}/Raw"
