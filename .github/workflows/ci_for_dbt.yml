@@ -12,7 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write      # 允许获取 OIDC token
+      id-token: write 
       contents: read
     
     steps:
@@ -77,7 +77,6 @@ jobs:
           export DBT_GCP_BIGQUERY_DATASET="${{ secrets.GCP_BIGQUERY_DATASET }}"
           echo "DBT_GCP_BIGQUERY_DATASET is set to $DBT_GCP_BIGQUERY_DATASET"
           
-          dbt debug --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
           dbt build --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
 
      
