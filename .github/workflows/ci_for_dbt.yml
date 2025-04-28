@@ -1,0 +1,35 @@
+name: CI for data transformation dag
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'dbt/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials/stg-sa-key.json
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Write GCP service account key
+        run: |
+          mkdir -p airflow/.google/credentials
+          echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > airflow/.google/credentials/stg-sa-key.json
+
+      - name: Install Dbt
+        run: |
+          pip install --user dbt
+          dbt --version
+
+      # - name: Install Dbt dependencies
+      #   run: |
+      #     dbt deps
+      
+      # - name: Generate profiles.yml
