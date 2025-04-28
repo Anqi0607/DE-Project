@@ -63,16 +63,6 @@ jobs:
               mkdir -p /tmp/airflow/logs/scheduler /tmp/airflow/logs/processors # && \
               # pytest tests/integration/test_load_to_gcp_dag.py\
             "
-      
-      # - name: Install Dbt
-      #   run: |
-      #     pip install dbt
-
-      # - name: Install Dbt dependencies
-      #   run: |
-      #     dbt deps
-      
-      # - name: Generate profiles.yml
 
       - name: Stop Docker containers
         run: |

@@ -1,4 +1,4 @@
-name: CI for data transformation dag
+name: CI for dbt
 
 on:
   pull_request:
@@ -11,25 +11,72 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/.google/credentials/stg-sa-key.json
-
+    permissions:
+      id-token: write 
+      contents: read
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Write GCP service account key
+      - name: Authenticate to GCP with Workload Identity
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WORKLOAD_IDENTITY_POOL }}/providers/${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+          token_format: "access_token"                             # ← 改成取 Access Token
+          access_token_scopes: "https://www.googleapis.com/auth/cloud-platform"
+          id_token_audience:      "https://iam.googleapis.com/projects/314898704112/locations/global/workloadIdentityPools/github-pool2/providers/github-provider2"
+          export_environment_variables: true
+      
+      - name: Install dbt with sudo
         run: |
-          mkdir -p airflow/.google/credentials
-          echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > airflow/.google/credentials/stg-sa-key.json
-
-      - name: Install Dbt
+          sudo pip install dbt
+          dbt --version
+      
+      - name: Install dbt BigQuery support
         run: |
-          pip install --user dbt
+          pip install --user dbt-bigquery
           dbt --version
 
-      # - name: Install Dbt dependencies
-      #   run: |
-      #     dbt deps
+      - name: Generate profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          echo "
+          default:
+            target: staging
+            outputs:
+              staging:
+                type: bigquery
+                method: oauth
+                project: ${{ secrets.GCP_PROJECT_ID }}
+                dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
+                threads: 1
+                location: US
+                timeout_seconds: 300
+          " > ~/.dbt/profiles.yml
       
-      # - name: Generate profiles.yml
+      - name: Install Dbt dependencies
+        run: |
+          export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
+          dbt deps --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
+      
+      - name: Dbt build
+        run: |
+          export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
+          export DBT_PROFILES_DIR=/home/runner/.dbt  # 使用绝对路径指定 profiles.yml
+          echo "Profiles path: $DBT_PROFILES_DIR/profiles.yml"
+          cat $DBT_PROFILES_DIR/profiles.yml  # 打印文件内容，确保文件生成成功
+          
+          # 确保 dbt 读取到正确的环境变量
+          echo "DBT_PROFILES_DIR is set to: $DBT_PROFILES_DIR"
+          
+          export DBT_GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          echo "DBT_GCP_PROJECT_ID is set to $DBT_GCP_PROJECT_ID"
+
+          export DBT_GCP_BIGQUERY_DATASET="${{ secrets.GCP_BIGQUERY_DATASET }}"
+          echo "DBT_GCP_BIGQUERY_DATASET is set to $DBT_GCP_BIGQUERY_DATASET"
+          
+          dbt build --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
+
+     
