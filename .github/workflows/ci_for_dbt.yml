@@ -23,7 +23,7 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WORKLOAD_IDENTITY_POOL }}/providers/${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}"
-          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
       
       - name: Install dbt with sudo
         run: |
