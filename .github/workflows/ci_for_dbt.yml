@@ -56,6 +56,16 @@ jobs:
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
           dbt deps --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
       
+      - name: Check if the GCP credentials file exists
+        run: |
+          # Check if the credentials file exists
+          if [ -f "/home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json" ]; then
+            echo "GCP credentials file exists."
+            cat /home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json  # Show file contents (optional)
+          else
+            echo "GCP credentials file not found!" && exit 1
+          fi
+
       - name: Dbt build
         run: |
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
