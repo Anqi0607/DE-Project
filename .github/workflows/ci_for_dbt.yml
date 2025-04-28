@@ -27,8 +27,11 @@ jobs:
         run: |
           sudo pip install dbt
           dbt --version
-
-
+      
+      - name: Install dbt BigQuery support
+        run: |
+          pip install --user dbt-bigquery
+          dbt --version  # Confirm BigQuery support is installed
 
       # - name: Install Dbt dependencies
       #   run: |
