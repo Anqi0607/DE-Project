@@ -11,15 +11,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write      # 允许获取 OIDC token
+      contents: read
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Restore GCP keyfile
-        run: |
-          mkdir -p dbt/.google/credentials
-          echo "${{ secrets.GCP_STG_CREDENTIAL }}" | jq . > dbt/.google/credentials/stg-sa-key.json
+      - name: Authenticate to GCP with Workload Identity
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WORKLOAD_IDENTITY_POOL }}/providers/${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
       
       - name: Install dbt with sudo
         run: |
@@ -40,11 +44,10 @@ jobs:
             outputs:
               staging:
                 type: bigquery
-                method: service-account
+                method: oauth
                 project: ${{ secrets.GCP_PROJECT_ID }}
                 dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
                 threads: 1
-                keyfile: home/runner/work/DE-Project/DE-Project/dbt/.google/credentials/stg-sa-key.json
                 location: US
                 timeout_seconds: 300
           " > ~/.dbt/profiles.yml
