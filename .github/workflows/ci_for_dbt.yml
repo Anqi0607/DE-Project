@@ -26,6 +26,7 @@ jobs:
           service_account: ${{ secrets.GCP_SA_EMAIL }}
           token_format: "access_token"                             # ← 改成取 Access Token
           access_token_scopes: "https://www.googleapis.com/auth/cloud-platform"
+          id_token_audience:      "repo:Anqi0607/DE-Project"
           export_environment_variables: true
       
       - name: Install dbt with sudo
