@@ -20,8 +20,8 @@ jobs:
       
       - name: Write GCP service account key
         run: |
-          mkdir -p airflow/.google/credentials
-          echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > airflow/.google/credentials/stg-sa-key.json
+          mkdir -p dbt/.google/credentials
+          echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > dbt/.google/credentials/stg-sa-key.json
 
       - name: Install dbt with sudo
         run: |
@@ -31,7 +31,25 @@ jobs:
       - name: Install dbt BigQuery support
         run: |
           pip install --user dbt-bigquery
-          dbt --version  # Confirm BigQuery support is installed
+          dbt --version
+
+      - name: Generate profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          echo "
+          default:
+            target: staging
+            outputs:
+              staging:
+                type: bigquery
+                project: ${{ secrets.GCP_PROJECT_ID }}
+                dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
+                threads: 1
+                keyfile: dbt/.google/credentials/stg-sa-key.json
+                location: US
+                timeout_seconds: 300
+          " > ~/.dbt/profiles.yml
+
 
       # - name: Install Dbt dependencies
       #   run: |
