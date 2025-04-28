@@ -55,6 +55,10 @@ jobs:
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
           dbt deps --profiles-dir ~/.dbt/profiles.yml --project-dir $DBT_PROJECT_DIR
       
+      - name: Run dbt debug
+        run: |
+          dbt debug --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
+
       - name: Dbt build
         run: |
           export DBT_PROJECT_DIR=/home/runner/work/DE-Project/DE-Project/dbt
