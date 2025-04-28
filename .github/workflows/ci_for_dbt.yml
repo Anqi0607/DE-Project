@@ -66,6 +66,12 @@ jobs:
           # 确保 dbt 读取到正确的环境变量
           echo "DBT_PROFILES_DIR is set to: $DBT_PROFILES_DIR"
           
+          export DBT_GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          echo "DBT_GCP_PROJECT_ID is set to $DBT_GCP_PROJECT_ID"
+
+          export DBT_GCP_BIGQUERY_DATASET="${{ secrets.GCP_BIGQUERY_DATASET }}"
+          echo "DBT_GCP_BIGQUERY_DATASET is set to $DBT_GCP_BIGQUERY_DATASET"
+
           dbt build --profiles-dir $DBT_PROFILES_DIR --project-dir $DBT_PROJECT_DIR
 
      
