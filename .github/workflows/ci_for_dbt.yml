@@ -42,6 +42,7 @@ jobs:
             outputs:
               staging:
                 type: bigquery
+                method: service-account-json
                 project: ${{ secrets.GCP_PROJECT_ID }}
                 dataset: ${{ secrets.GCP_BIGQUERY_DATASET }}
                 threads: 1
