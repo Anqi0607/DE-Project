@@ -1,4 +1,4 @@
-name: CI for data transformation dag
+name: CI for dbt
 
 on:
   pull_request:
@@ -23,10 +23,12 @@ jobs:
           mkdir -p airflow/.google/credentials
           echo "${{ secrets.GCP_CREDENTIALS_STAGING }}" > airflow/.google/credentials/stg-sa-key.json
 
-      - name: Install Dbt
+      - name: Install dbt
         run: |
+          export PIP_USER=true
           pip install --user dbt
           dbt --version
+
 
       # - name: Install Dbt dependencies
       #   run: |
