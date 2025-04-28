@@ -49,6 +49,10 @@ jobs:
                 location: US
                 timeout_seconds: 300
           " > ~/.dbt/profiles.yml
+      
+      - name: Install Dbt dependencies
+        run: |
+          dbt deps --profiles-dir ~/.dbt/profiles.yml
 
 
       # - name: Install Dbt dependencies
