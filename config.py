@@ -17,3 +17,4 @@ GCP_BIGQUERY_DATASET = os.getenv("GCP_BIGQUERY_DATASET")
 TEMP_BUCKET = "de-zoomcamp-project-tem-bucket-pebbles"
 
 GCS_PREFIX = f"METAR/{STATE}/Raw"
+GCS_CSV_PREFIX = f"METAR/{STATE}/CVS"
