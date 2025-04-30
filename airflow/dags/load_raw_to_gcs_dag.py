@@ -37,6 +37,24 @@ def build_csv_to_parquet_job(**kwargs):
         },
     }
 
+@task
+def build_bronze_transform_job(**kwargs):
+    execution_date = kwargs["data_interval_start"]
+    ym = execution_date.strftime("%Y%m")
+
+    input_path = f"gs://{config.BUCKET_NAME}/{config.GCS_PARQUET_PREFIX}/{ym}/"
+    output_path = input_path.replace("PARQUET", "Bronze-Dataproc")
+
+    return {
+        "reference": {"project_id": config.GCP_PROJECT_ID},
+        "placement": {"cluster_name": f"metar-cluster-{execution_date.strftime('%Y%m%d')}"},
+        "pyspark_job": {
+            "main_python_file_uri": f"gs://{config.BUCKET_NAME}/METAR/spark-jobs/transform_raw_data_gcp.py",
+            "args": [input_path, output_path],
+        },
+    }
+
+
 cluster_config = {
     "master_config": {
         "num_instances": 1,
@@ -91,14 +109,23 @@ with DAG(
 
     t3_spark_job_config = build_csv_to_parquet_job()
 
-    t4_submit_spark = DataprocSubmitJobOperator(
-        task_id="submit_spark_job",
+    t4_submit_convert_spark = DataprocSubmitJobOperator(
+        task_id="submit_convert_spark_job",
         job=t3_spark_job_config,
         region=config.GCP_REGION,
         project_id=config.GCP_PROJECT_ID,
     )
 
-    t5_delete_cluster = DataprocDeleteClusterOperator(
+    t5_transform_job_config = build_bronze_transform_job()
+
+    t6_submit_transform_spark = DataprocSubmitJobOperator(
+            task_id="submit_transform_spark_job",
+            job=t5_transform_job_config,
+            region=config.GCP_REGION,
+            project_id=config.GCP_PROJECT_ID,
+        )
+
+    t7_delete_cluster = DataprocDeleteClusterOperator(
         task_id="delete_cluster",
         project_id=config.GCP_PROJECT_ID,
         cluster_name=CLUSTER_NAME_TEMPLATE,
@@ -107,6 +134,6 @@ with DAG(
     )
 
 
-    t1_download_csv_to_gcs >> t2_create_cluster >> t3_spark_job_config >> t4_submit_spark >> t5_delete_cluster
+    t1_download_csv_to_gcs >> t2_create_cluster >> t3_spark_job_config >> t4_submit_convert_spark >> t5_transform_job_config >> t6_submit_transform_spark >> t7_delete_cluster
 
 
