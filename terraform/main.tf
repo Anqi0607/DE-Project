@@ -66,3 +66,28 @@ resource "google_bigquery_dataset" "env_dataset" {
   location                    = var.location
   delete_contents_on_destroy = true
 }
+
+# create service account for dataproc
+resource "google_service_account" "dataproc_node_sa" {
+  account_id   = "${terraform.workspace}-dataproc-node"
+  display_name = "Dataproc Node SA for ${terraform.workspace}"
+}
+
+# assign minimum access
+resource "google_project_iam_member" "dataproc_node_storage_object_admin" {
+  project = var.project
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.dataproc_node_sa.email}"
+}
+
+resource "google_project_iam_member" "dataproc_node_log_writer" {
+  project = var.project
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.dataproc_node_sa.email}"
+}
+
+resource "google_project_iam_member" "dataproc_node_metric_writer" {
+  project = var.project
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.dataproc_node_sa.email}"
+}

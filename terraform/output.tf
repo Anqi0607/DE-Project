@@ -9,3 +9,8 @@ output "gcs_bucket_name" {
 output "bq_dataset_id" {
   value = google_bigquery_dataset.env_dataset.dataset_id
 }
+
+output "dataproc_node_service_account" {
+  description = "Dataproc node service account email"
+  value       = google_service_account.dataproc_node_sa.email
+}
