@@ -91,3 +91,10 @@ resource "google_project_iam_member" "dataproc_node_metric_writer" {
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${google_service_account.dataproc_node_sa.email}"
 }
+
+resource "google_project_iam_member" "dataproc_worker" {
+  project = var.project
+  role    = "roles/dataproc.worker"
+  member  = "serviceAccount:${google_service_account.env_sa.email}"
+}
+
