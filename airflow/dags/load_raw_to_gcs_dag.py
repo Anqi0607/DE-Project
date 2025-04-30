@@ -7,7 +7,7 @@ import sys
 sys.path.append("/opt/airflow")
 sys.path.append("/opt/airflow/scripts")
 
-from scripts.load_to_gcs import (
+from scripts.download_csv_to_gcs import (
     write_csv_to_gcs
 )
 import config
