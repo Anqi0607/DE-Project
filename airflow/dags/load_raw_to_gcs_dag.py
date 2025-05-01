@@ -24,6 +24,7 @@ def build_csv_to_parquet_job(**kwargs):
     execution_date = kwargs["data_interval_start"]
     ym = execution_date.strftime("%Y%m")
 
+    # 每个月的path不一样，因此要dynamically build dataproc job的config
     input_prefix = ti.xcom_pull(task_ids="download_csv_to_gcs")
     input_path = f"gs://{config.BUCKET_NAME}/{input_prefix}"
     output_path = f"gs://{config.BUCKET_NAME}/{config.GCS_PARQUET_PREFIX}/{ym}/"
@@ -156,13 +157,13 @@ with DAG(
         project_id= config.GCP_PROJECT_ID,
     )
 
-    # t9_delete_cluster = DataprocDeleteClusterOperator(
-    #     task_id="delete_cluster",
-    #     project_id=config.GCP_PROJECT_ID,
-    #     cluster_name=CLUSTER_NAME_TEMPLATE,
-    #     region=config.GCP_REGION,
-    #     trigger_rule="all_done",  # 即使任务失败也删除
-    # )
+    t9_delete_cluster = DataprocDeleteClusterOperator(
+        task_id="delete_cluster",
+        project_id=config.GCP_PROJECT_ID,
+        cluster_name=CLUSTER_NAME_TEMPLATE,
+        region=config.GCP_REGION,
+        trigger_rule="all_done",  # 即使任务失败也删除
+    )
 
     (
     t1_download_csv_to_gcs 
@@ -173,6 +174,6 @@ with DAG(
     >> t6_submit_transform_spark
     >> t7_table_job_config 
     >> t8_submit_table_spark 
-    # >> t9_delete_cluster
+    >> t9_delete_cluster
 )
 
